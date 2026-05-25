@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VASP Agent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>VASP Agent</h1>
+    <p>自动建模 &amp; VASP 输入文件生成</p>
+  </header>
+
+  <main>
+    <section class="input-section">
+      <div class="form-group">
+        <label for="calcType">计算类型</label>
+        <select id="calcType">
+          <option value="optimization">结构优化 (Optimization)</option>
+          <option value="homo_lumo">HOMO-LUMO 计算</option>
+          <option value="dipole">偶极矩 (Dipole Moment)</option>
+          <option value="aimd">分子动力学 (AIMD)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="inputFormat">输入格式</label>
+        <select id="inputFormat">
+          <option value="smiles">SMILES</option>
+          <option value="formula">分子式</option>
+          <option value="xyz">XYZ</option>
+          <option value="cif">CIF</option>
+          <option value="mol">MOL</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="structureData">结构数据</label>
+        <textarea id="structureData" rows="5" placeholder="输入 SMILES、分子式或粘贴文件内容..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="charge">电荷</label>
+          <input type="number" id="charge" value="0" min="-5" max="5">
+        </div>
+        <div class="form-group">
+          <label for="multiplicity">自旋多重度</label>
+          <input type="number" id="multiplicity" value="1" min="1" max="10">
+        </div>
+        <div class="form-group">
+          <label for="name">分子名称</label>
+          <input type="text" id="name" value="molecule" maxlength="100">
+        </div>
+      </div>
+
+      <details class="advanced-options">
+        <summary>高级选项</summary>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="encut">ENCUT (eV)</label>
+            <input type="number" id="encut" placeholder="400" min="100" max="1500">
+          </div>
+          <div class="form-group" id="nswGroup">
+            <label for="nsw">NSW (步数)</label>
+            <input type="number" id="nsw" placeholder="100" min="0" max="50000">
+          </div>
+          <div class="form-group" id="tempGroup" style="display:none">
+            <label for="temperature">温度 (K)</label>
+            <input type="number" id="temperature" placeholder="300" min="0" max="5000">
+          </div>
+        </div>
+      </details>
+
+      <button id="generateBtn">生成 VASP 输入文件</button>
+    </section>
+
+    <section id="resultSection" class="result-section" style="display:none;">
+      <div class="summary-box" id="summaryBox"></div>
+
+      <div class="tabs" id="fileTabs"></div>
+      <div class="tab-content" id="tabContent">
+        <pre><code id="fileContent"></code></pre>
+      </div>
+
+      <div class="result-actions">
+        <button id="downloadZipBtn">下载全部文件 (.zip)</button>
+        <button id="copyBtn">复制当前内容</button>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+    <h2>POTCAR 库管理</h2>
+
+    <section class="analysis-section">
+      <div class="potcar-summary" id="potcarSummary">加载中...</div>
+      <div class="potcar-grid" id="potcarGrid"></div>
+      <div class="form-row" style="margin-top:1rem;">
+        <div class="form-group">
+          <label for="potcarFile">导入 POTCAR 文件</label>
+          <input type="file" id="potcarFile" accept="*" multiple>
+          <button id="importPotcarBtn" class="btn-sm">导入</button>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+    <h2>结果分析</h2>
+
+    <section class="analysis-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="outcarFile">上传 OUTCAR 文件</label>
+          <input type="file" id="outcarFile" accept=".txt,.out,outcar,OUTCAR">
+          <button id="analyzeOutcarBtn" class="btn-sm">分析 OUTCAR</button>
+        </div>
+        <div class="form-group">
+          <label for="eigenvalFile">上传 EIGENVAL 文件</label>
+          <input type="file" id="eigenvalFile" accept=".txt,EIGENVAL">
+          <button id="analyzeEigenBtn" class="btn-sm">分析 EIGENVAL</button>
+        </div>
+        <div class="form-group">
+          <label for="oszicarFile">上传 OSZICAR 文件</label>
+          <input type="file" id="oszicarFile" accept=".txt,OSZICAR,oszicar">
+          <button id="analyzeOszicarBtn" class="btn-sm">分析 OSZICAR</button>
+        </div>
+        <div class="form-group">
+          <label for="vasprunFile">上传 vasprun.xml</label>
+          <input type="file" id="vasprunFile" accept=".xml,.txt,vasprun*">
+          <button id="analyzeVasprunBtn" class="btn-sm">分析 vasprun</button>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:0.75rem;">
+        <div class="form-group">
+          <label for="xdatcarFile">上传 XDATCAR</label>
+          <input type="file" id="xdatcarFile" accept=".txt,XDATCAR,xdatcar">
+          <button id="analyzeXdatcarBtn" class="btn-sm">分析 XDATCAR</button>
+        </div>
+        <div class="form-group">
+          <label for="contcarFile">上传 CONTCAR</label>
+          <input type="file" id="contcarFile" accept=".txt,CONTCAR,contcar">
+          <button id="analyzeContcarBtn" class="btn-sm">分析 CONTCAR</button>
+        </div>
+      </div>
+
+      <div id="analysisResult" class="analysis-result" style="display:none;">
+        <div id="analysisSummary"></div>
+      </div>
+    </section>
+
+    <section id="warningSection" class="warning-section" style="display:none;"></section>
+    <section id="errorSection" class="error-section" style="display:none;"></section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

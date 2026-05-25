@@ -1,0 +1,7 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.3
+rdkit>=2024.03.0
+numpy>=1.26.0
+ase>=3.23.0
+pymatgen>=2024.0.0
