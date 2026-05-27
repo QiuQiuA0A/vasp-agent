@@ -2,8 +2,8 @@ __pycache__/
 *.pyc
 *.pyo
 .env
-backend/potcar_library/*
-!backend/potcar_library/.gitkeep
+backend/app/services/potcar/library/*
+!backend/app/services/potcar/library/.gitkeep
 *.egg-info/
 dist/
 *.zip

@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 from app.core.config import POTCAR_LIBRARY, POTCAR_FUNCTIONAL
-from app.services.potcar import POTCAR_MAP
+from app.services.potcar.potcar import POTCAR_MAP
 
 
 def _lib_root(functional: str | None = None) -> Path:

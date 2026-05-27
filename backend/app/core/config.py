@@ -5,7 +5,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 POTCAR_LIBRARY = Path(os.environ.get(
     "VASP_POTCAR_LIBRARY",
-    str(PROJECT_ROOT / "potcar_library"),
+    str(PROJECT_ROOT / "app" / "services" / "potcar" / "library"),
 ))
 POTCAR_FUNCTIONAL = os.environ.get("VASP_POTCAR_FUNCTIONAL", "PBE")
 

@@ -13,7 +13,7 @@ from app.services.parsers.oszicar import parse_oszicar
 from app.services.parsers.vasprun import parse_vasprun
 from app.services.parsers.xdatcar import parse_xdatcar
 from app.services.parsers.contcar import parse_contcar, contcar_to_xyz
-from app.services.potcar_manager import (
+from app.services.potcar import (
     library_stats,
     list_functionals,
     detect_element,
