@@ -9,6 +9,13 @@ POTCAR_LIBRARY = Path(os.environ.get(
 ))
 POTCAR_FUNCTIONAL = os.environ.get("VASP_POTCAR_FUNCTIONAL", "PBE")
 
+# SLURM cluster defaults — override via environment variables
+SLURM_PARTITION = os.environ.get("VASP_SLURM_PARTITION", "compute")
+SLURM_NODES = int(os.environ.get("VASP_SLURM_NODES", "1"))
+SLURM_NTASKS_PER_NODE = int(os.environ.get("VASP_SLURM_NTASKS", "32"))
+SLURM_WALLTIME = os.environ.get("VASP_SLURM_WALLTIME", "24:00:00")
+SLURM_VASP_MODULE = os.environ.get("VASP_SLURM_MODULE", "vasp/6.4.3")
+
 # VASP defaults for different calculation types
 VASP_DEFAULTS = {
     "optimization": {
@@ -41,6 +48,37 @@ VASP_DEFAULTS = {
         "TEEND": 300,
         "SMASS": 0,
         "MDALGO": 2,
+    },
+    "frequency": {
+        "IBRION": 5,
+        "NSW": 1,
+        "NFREE": 2,
+        "POTIM": 0.015,
+        "EDIFF": 1e-7,
+        "PREC": "Accurate",
+    },
+    "dos": {
+        "IBRION": -1,
+        "NSW": 0,
+        "EDIFF": 1e-6,
+        "LORBIT": 11,
+        "NEDOS": 2000,
+        "ISMEAR": -5,
+    },
+    "band": {
+        "IBRION": -1,
+        "NSW": 0,
+        "EDIFF": 1e-6,
+        "LORBIT": 11,
+        "NEDOS": 2000,
+        "ICHARG": 11,
+    },
+    "work_function": {
+        "IBRION": -1,
+        "NSW": 0,
+        "EDIFF": 1e-6,
+        "LVHAR": True,
+        "LVTOT": True,
     },
 }
 

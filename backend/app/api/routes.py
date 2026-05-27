@@ -86,6 +86,26 @@ async def list_calc_types():
                 "description": "AIMD NVT ensemble with Nose-Hoover thermostat",
                 "steps": 1,
             },
+            "frequency": {
+                "name": "振动频率",
+                "description": "Vibrational frequency analysis (IBRION=5, NFREE=2)",
+                "steps": 1,
+            },
+            "dos": {
+                "name": "态密度 (DOS)",
+                "description": "Density of states with dense k-mesh (NEDOS=2000, ISMEAR=-5)",
+                "steps": 1,
+            },
+            "band": {
+                "name": "能带结构",
+                "description": "Band structure (SCF + non-SCF line-mode, requires CIF)",
+                "steps": 2,
+            },
+            "work_function": {
+                "name": "功函数",
+                "description": "Work function (LVHAR, LVTOT) for surface systems",
+                "steps": 1,
+            },
         },
         "input_formats": ["smiles", "formula", "xyz", "cif", "mol"],
     }

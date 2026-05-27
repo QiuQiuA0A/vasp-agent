@@ -8,6 +8,10 @@ class CalcType(str, Enum):
     HOMO_LUMO = "homo_lumo"
     DIPOLE = "dipole"
     AIMD = "aimd"
+    FREQUENCY = "frequency"
+    DOS = "dos"
+    BAND = "band"
+    WORK_FUNCTION = "work_function"
 
 
 class InputFormat(str, Enum):

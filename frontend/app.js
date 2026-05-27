@@ -3,9 +3,14 @@ let currentTab = 0;
 let lastPayload = null;
 
 document.getElementById("calcType").addEventListener("change", function () {
-  const isAIMD = this.value === "aimd";
-  document.getElementById("tempGroup").style.display = isAIMD ? "" : "none";
-  document.getElementById("nswGroup").style.display = isAIMD ? "none" : "";
+  const v = this.value;
+  document.getElementById("tempGroup").style.display = v === "aimd" ? "" : "none";
+  const showNSW = v === "optimization" || v === "aimd";
+  document.getElementById("nswGroup").style.display = showNSW ? "" : "none";
+  // Band structure requires periodic system
+  if (v === "band") {
+    document.getElementById("inputFormat").value = "cif";
+  }
 });
 
 document.getElementById("generateBtn").addEventListener("click", generateFiles);

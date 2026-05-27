@@ -137,6 +137,33 @@ RESP=$(curl -sf -X POST "$BASE/api/v1/generate" \
 assert_contains "xyz:POSCAR" "POSCAR" "$RESP"
 assert_contains "xyz:Cartesian" "Cartesian" "$RESP"
 
+echo "=== Generation: frequency (SMILES) ==="
+PAYLOAD='{"calc_type":"frequency","structure":{"format":"smiles","data":"O"},"charge":0,"multiplicity":1,"name":"water-freq"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "freq:IBRION=5" "IBRION = 5" "$RESP"
+assert_contains "freq:NFREE" "NFREE = 2" "$RESP"
+
+echo "=== Generation: DOS ==="
+PAYLOAD='{"calc_type":"dos","structure":{"format":"smiles","data":"O"},"charge":0,"multiplicity":1,"name":"water-dos"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "dos:NEDOS" "NEDOS = 2000" "$RESP"
+assert_contains "dos:ISMEAR" "ISMEAR = -5" "$RESP"
+
+echo "=== Generation: work_function ==="
+PAYLOAD='{"calc_type":"work_function","structure":{"format":"smiles","data":"O"},"charge":0,"multiplicity":1,"name":"water-wf"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "wf:LVHAR" "LVHAR = .TRUE." "$RESP"
+
+echo "=== Generation: band (requires CIF, error for SMILES) ==="
+PAYLOAD='{"calc_type":"band","structure":{"format":"smiles","data":"O"},"charge":0,"multiplicity":1,"name":"band-fail"}'
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE/api/v1/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_eq "band:rejects SMILES" "400" "$HTTP_CODE"
+
 echo "=== Generation: MOL input ==="
 MOL_JSON=$(printf '{"calc_type":"optimization","structure":{"format":"mol","data":"\\n  RDKit          3D\\n\\n  2  1  0  0  0  0  0  0  0  0999 V2000\\n    0.0000    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\\n    0.7570    0.5860    0.0000 H   0  0  0  0  0  0  0  0  0  0  0  0\\n  1  2  1  0\\nM  END"},"charge":0,"multiplicity":1,"name":"water-mol"}')
 RESP=$(curl -sf -X POST "$BASE/api/v1/generate" \

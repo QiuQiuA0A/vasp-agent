@@ -1,7 +1,10 @@
 from app.core.config import VASP_DEFAULTS, COMMON_DEFAULTS
 from app.services.modeling import parse_structure, get_formula, get_element_list_from_xyz
 from app.services.potcar import generate_potcar, assess_potcar_availability
-from app.services.vasp_templates import render_incar, render_kpoints, render_slurm
+from app.services.vasp_templates import (
+    render_incar, render_kpoints, render_kpoints_kspacing,
+    render_kpoints_band, render_slurm, BAND_PATHS,
+)
 from app.models.schemas import CalcType, VASPRequest, CalculationResponse, FileContent
 
 
@@ -24,14 +27,14 @@ def generate_vasp_files(request: VASPRequest) -> CalculationResponse:
             f"Place {request.functional} POTCARs in potcar_library/{request.functional}/<element>/POTCAR."
         )
 
-    calc_sets = _build_calc_sets(request, is_crystal)
+    calc_sets = _build_calc_sets(request, is_crystal, lattice)
 
     files: list[FileContent] = []
     for calc_step in calc_sets:
         incar = render_incar(calc_step["params"], calc_step["label"])
         poscar = _generate_poscar(xyz_str, formula, lattice)
         potcar = generate_potcar(elements, request.functional)
-        kpoints = render_kpoints((4, 4, 4) if is_crystal else (1, 1, 1))
+        kpoints = calc_step.get("kpoints", _default_kpoints(is_crystal, request.calc_type))
         slurm = render_slurm(_sanitize_jobname(formula))
 
         prefix = calc_step["prefix"]
@@ -52,7 +55,8 @@ def generate_vasp_files(request: VASPRequest) -> CalculationResponse:
     )
 
 
-def _build_calc_sets(request: VASPRequest, is_crystal: bool) -> list[dict]:
+def _build_calc_sets(request: VASPRequest, is_crystal: bool,
+                     lattice: list[tuple[float, float, float]] | None = None) -> list[dict]:
     """Build the list of calculation steps needed."""
     base_params = dict(COMMON_DEFAULTS)
 
@@ -89,6 +93,43 @@ def _build_calc_sets(request: VASPRequest, is_crystal: bool) -> list[dict]:
         if request.nsw is not None:
             params["NSW"] = request.nsw
         return [{"label": "AIMD (NVT)", "prefix": "aimd", "params": params}]
+
+    elif request.calc_type == CalcType.FREQUENCY:
+        params = {**base_params, **VASP_DEFAULTS["frequency"]}
+        if request.encut is not None:
+            params["ENCUT"] = request.encut
+        return [{"label": "Vibrational Frequencies", "prefix": "freq", "params": params}]
+
+    elif request.calc_type == CalcType.DOS:
+        params = {**base_params, **VASP_DEFAULTS["dos"]}
+        if request.encut is not None:
+            params["ENCUT"] = request.encut
+        kpoints = render_kpoints((8, 8, 8)) if is_crystal else render_kpoints((1, 1, 1))
+        return [{"label": "DOS Calculation", "prefix": "dos", "params": params, "kpoints": kpoints}]
+
+    elif request.calc_type == CalcType.BAND:
+        if not is_crystal:
+            raise ValueError("Band structure calculations require a periodic system (CIF input).")
+        scf_params = {**base_params, **VASP_DEFAULTS["static"]}
+        band_params = {**base_params, **VASP_DEFAULTS["band"]}
+        if request.encut is not None:
+            scf_params["ENCUT"] = request.encut
+            band_params["ENCUT"] = request.encut
+        scf_kpoints = render_kpoints((8, 8, 8), "Gamma", "Band - SCF mesh")
+        band_kpoints = render_kpoints_band(_guess_band_path(lattice))
+        return [
+            {"label": "Step 1 - SCF (Band)", "prefix": "scf", "params": scf_params, "kpoints": scf_kpoints},
+            {"label": "Step 2 - Band Structure", "prefix": "band", "params": band_params, "kpoints": band_kpoints},
+        ]
+
+    elif request.calc_type == CalcType.WORK_FUNCTION:
+        params = {**base_params, **VASP_DEFAULTS["work_function"]}
+        if request.encut is not None:
+            params["ENCUT"] = request.encut
+        kpoints = render_kpoints((6, 6, 6)) if is_crystal else render_kpoints((1, 1, 1))
+        return [{"label": "Work Function", "prefix": "wf", "params": params, "kpoints": kpoints}]
+
+    raise NotImplementedError(f"Unknown calc_type: {request.calc_type}")
 
 
 def _sanitize_jobname(formula: str) -> str:
@@ -168,12 +209,78 @@ def _generate_poscar(
     return "\n".join(poscar_lines)
 
 
+def _default_kpoints(is_crystal: bool, calc_type: CalcType) -> str:
+    """Return default KPOINTS string for a given system and calculation type."""
+    if not is_crystal:
+        return render_kpoints((1, 1, 1))
+    if calc_type == CalcType.DOS:
+        return render_kpoints((8, 8, 8), "Gamma", "DOS dense mesh")
+    if calc_type == CalcType.WORK_FUNCTION:
+        return render_kpoints((6, 6, 6), "Gamma", "Work function mesh")
+    return render_kpoints((4, 4, 4))
+
+
+def _guess_band_path(lattice: list[tuple[float, float, float]] | None) -> list[tuple[float, float, float, str]]:
+    """Guess the high-symmetry k-path for a lattice. Falls back to a generic path."""
+    if lattice is None:
+        return [
+            (0.0, 0.0, 0.0, "Γ"),
+            (0.5, 0.0, 0.0, "X"),
+            (0.5, 0.5, 0.0, "M"),
+            (0.0, 0.0, 0.0, "Γ"),
+        ]
+
+    tol = 0.01
+    a = lattice[0]
+    b = lattice[1]
+    c = lattice[2]
+
+    def _norm(v):
+        return (v[0]**2 + v[1]**2 + v[2]**2)**0.5
+    def _angle(v1, v2):
+        dot = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
+        n1, n2 = _norm(v1), _norm(v2)
+        return dot / (n1 * n2 + 1e-12)
+    def _eq(x, y):
+        return abs(x - y) < tol
+
+    na, nb, nc = _norm(a), _norm(b), _norm(c)
+    angles = (_angle(b, c), _angle(a, c), _angle(a, b))
+
+    if _eq(na, nb) and _eq(nb, nc) and all(_eq(ang, _eq(90, 0) or 0) for ang in angles):
+        pass  # Ambiguous - use fallback
+
+    # Detect cubic: all 90°, equal lengths
+    if (_eq(na, nb) and _eq(nb, nc)
+            and all(abs(ang - 90) < 2 for ang in angles)):
+        return BAND_PATHS.get("fcc", [])  # FCC path works for most cubic
+
+    # Detect hexagonal: a=b, a != c, a^b = 120°, a^c = b^c = 90°
+    if (_eq(na, nb) and not _eq(na, nc)
+            and abs(angles[2] - 120) < 5
+            and abs(angles[0] - 90) < 5
+            and abs(angles[1] - 90) < 5):
+        return BAND_PATHS.get("hcp", [])
+
+    # Fallback generic path
+    return [
+        (0.0, 0.0, 0.0, "Γ"),
+        (0.5, 0.0, 0.0, "X"),
+        (0.5, 0.5, 0.0, "M"),
+        (0.0, 0.0, 0.0, "Γ"),
+    ]
+
+
 def _build_summary(request: VASPRequest, formula: str, elements: list[str], n_steps: int) -> str:
     calc_labels = {
         "optimization": "结构优化 (Geometry Optimization)",
         "homo_lumo": "HOMO-LUMO 计算 (优化 + 静态计算)",
         "dipole": "偶极矩计算 (Dipole Moment)",
         "aimd": "分子动力学模拟 (AIMD, NVT 系综)",
+        "frequency": "振动频率 (Vibrational Frequencies)",
+        "dos": "态密度 (Density of States)",
+        "band": "能带结构 (Band Structure)",
+        "work_function": "功函数 (Work Function)",
     }
     return (
         f"分子式: {formula}\n"
