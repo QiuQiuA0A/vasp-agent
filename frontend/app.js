@@ -212,7 +212,12 @@ async function downloadZip() {
 function showError(msg) {
   const el = document.getElementById("errorSection");
   el.style.display = "";
-  el.innerHTML = "<p>" + msg + "</p>";
+  if (typeof msg === "object" && msg.error) {
+    el.innerHTML = "<p class=\"err-msg\">" + msg.error + "</p>"
+      + (msg.suggestion ? "<p class=\"err-hint\">" + msg.suggestion + "</p>" : "");
+  } else {
+    el.innerHTML = "<p class=\"err-msg\">" + (typeof msg === "string" ? msg : JSON.stringify(msg)) + "</p>";
+  }
 }
 
 function hideMessages() {

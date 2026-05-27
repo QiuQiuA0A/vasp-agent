@@ -274,6 +274,19 @@ button:disabled {
   color: var(--error-text);
 }
 
+.error-section .err-msg {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.error-section .err-hint {
+  color: #856404;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(114, 28, 36, 0.2);
+}
+
 .section-divider {
   margin: 2rem 0 1.5rem;
   border: 0;

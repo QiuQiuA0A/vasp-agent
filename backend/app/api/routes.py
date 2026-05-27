@@ -21,8 +21,18 @@ from app.services.potcar_manager import (
     remove_potcar,
     bulk_import,
 )
+from app.services.user_messages import translate
 
 router = APIRouter()
+
+
+def _friendly_error(exc: Exception, status_code: int = 400) -> HTTPException:
+    """Convert a technical exception to a user-friendly HTTPException."""
+    msg = translate(str(exc))
+    return HTTPException(
+        status_code=status_code,
+        detail={"error": msg.message, "suggestion": msg.suggestion},
+    )
 
 
 @router.post("/generate", response_model=CalculationResponse)
@@ -31,9 +41,9 @@ async def generate_input_files(request: VASPRequest):
     try:
         return generate_vasp_files(request)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise _friendly_error(e, 400)
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
+        raise _friendly_error(e, 501)
 
 
 @router.post("/download")
@@ -42,9 +52,9 @@ async def download_files(request: VASPRequest):
     try:
         result = generate_vasp_files(request)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise _friendly_error(e, 400)
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
+        raise _friendly_error(e, 501)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -122,7 +132,7 @@ async def analyze_outcar(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 100:
-        raise HTTPException(400, "File too small — not a valid OUTCAR")
+        raise _friendly_error(ValueError("File too small — not a valid OUTCAR"), 400)
 
     result = parse_outcar(text)
     return {
@@ -149,7 +159,7 @@ async def analyze_eigenval(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 50:
-        raise HTTPException(400, "File too small — not a valid EIGENVAL")
+        raise _friendly_error(ValueError("File too small — not a valid EIGENVAL"), 400)
 
     result = parse_eigenval(text)
     return result
@@ -161,7 +171,7 @@ async def analyze_oszicar(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 50:
-        raise HTTPException(400, "File too small — not a valid OSZICAR")
+        raise _friendly_error(ValueError("File too small — not a valid OSZICAR"), 400)
 
     result = parse_oszicar(text)
     return {
@@ -189,9 +199,9 @@ async def analyze_vasprun(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 200:
-        raise HTTPException(400, "File too small — not a valid vasprun.xml")
+        raise _friendly_error(ValueError("File too small — not a valid vasprun.xml"), 400)
     if not text.strip().startswith("<?xml") and "<modeling>" not in text[:500]:
-        raise HTTPException(400, "Not a valid VASP vasprun.xml")
+        raise _friendly_error(ValueError("Not a valid VASP vasprun.xml"), 400)
 
     result = parse_vasprun(text)
     return {
@@ -222,7 +232,7 @@ async def analyze_xdatcar(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 100:
-        raise HTTPException(400, "File too small — not a valid XDATCAR")
+        raise _friendly_error(ValueError("File too small — not a valid XDATCAR"), 400)
 
     result = parse_xdatcar(text)
     return {
@@ -250,7 +260,7 @@ async def analyze_contcar(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 50:
-        raise HTTPException(400, "File too small — not a valid CONTCAR")
+        raise _friendly_error(ValueError("File too small — not a valid CONTCAR"), 400)
 
     result = parse_contcar(text)
     return {
@@ -299,12 +309,12 @@ async def potcar_import(file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8", errors="replace")
     if len(text) < 100:
-        raise HTTPException(400, "File too small — not a valid POTCAR")
+        raise _friendly_error(ValueError("File too small — not a valid POTCAR"), 400)
     try:
         elem, folder = import_potcar(text)
         return {"status": "ok", "element": elem, "folder": folder}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise _friendly_error(e, 400)
 
 
 @router.post("/potcar/import-multi")
@@ -324,7 +334,7 @@ async def potcar_delete(element: str):
     """Remove a POTCAR for a given element from the library."""
     removed = remove_potcar(element)
     if not removed:
-        raise HTTPException(404, f"No POTCAR found for element '{element}'")
+        raise HTTPException(404, detail={"error": f"POTCAR 库中未找到元素 '{element}' 的势文件", "suggestion": "该元素可能尚未导入，请先在 POTCAR 库管理页面导入"})
     return {"status": "removed", "element": element}
 
 
@@ -335,7 +345,7 @@ async def potcar_detect(file: UploadFile = File(...)):
     text = content.decode("utf-8", errors="replace")
     elem = detect_element(text)
     if not elem:
-        raise HTTPException(400, "Cannot detect element — is this a valid VASP POTCAR?")
+        raise _friendly_error(ValueError("Cannot detect element"), 400)
     return {"element": elem}
 
 
@@ -386,9 +396,9 @@ async def surface_build(request: SurfaceRequest):
             summary=" | ".join(summary_parts),
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise _friendly_error(e, 400)
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
+        raise _friendly_error(e, 501)
 
 
 @router.post("/surface/generate")
@@ -428,6 +438,6 @@ async def surface_generate(request: SurfaceGenerateRequest):
             "summary": " | ".join(summary_parts),
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise _friendly_error(e, 400)
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
+        raise _friendly_error(e, 501)
