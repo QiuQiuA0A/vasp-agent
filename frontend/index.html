@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VASP Agent</title>
 <link rel="stylesheet" href="style.css">
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -71,6 +72,14 @@
             <label for="temperature">温度 (K)</label>
             <input type="number" id="temperature" placeholder="300" min="0" max="5000">
           </div>
+          <div class="form-group">
+            <label for="functional">交换关联泛函</label>
+            <select id="functional">
+              <option value="PBE" selected>PBE</option>
+              <option value="LDA">LDA</option>
+              <option value="PW91">PW91</option>
+            </select>
+          </div>
         </div>
       </details>
 
@@ -79,6 +88,10 @@
 
     <section id="resultSection" class="result-section" style="display:none;">
       <div class="summary-box" id="summaryBox"></div>
+
+      <div id="structureViewer" class="structure-viewer" style="display:none;">
+        <div id="molViewer" style="width:100%;height:300px;position:relative;"></div>
+      </div>
 
       <div class="tabs" id="fileTabs"></div>
       <div class="tab-content" id="tabContent">
@@ -100,21 +113,21 @@
           <label for="surfaceMetal">金属</label>
           <select id="surfaceMetal">
             <option value="Fe" selected>Fe (BCC)</option>
-            <option value="Cr" disabled>Cr (BCC) — 暂未开放</option>
-            <option value="Cu" disabled>Cu (FCC) — 暂未开放</option>
-            <option value="Al" disabled>Al (FCC) — 暂未开放</option>
-            <option value="Ni" disabled>Ni (FCC) — 暂未开放</option>
-            <option value="Zn" disabled>Zn (HCP) — 暂未开放</option>
-            <option value="Mg" disabled>Mg (HCP) — 暂未开放</option>
-            <option value="Ti" disabled>Ti (HCP) — 暂未开放</option>
+            <option value="Cr">Cr (BCC)</option>
+            <option value="Cu">Cu (FCC)</option>
+            <option value="Al">Al (FCC)</option>
+            <option value="Ni">Ni (FCC)</option>
+            <option value="Zn">Zn (HCP)</option>
+            <option value="Mg">Mg (HCP)</option>
+            <option value="Ti">Ti (HCP)</option>
           </select>
         </div>
         <div class="form-group">
           <label for="surfaceIndex">晶面 (Miller)</label>
           <select id="surfaceIndex">
-            <option value="110" selected>Fe(110)</option>
-            <option value="100">Fe(100)</option>
-            <option value="111">Fe(111)</option>
+            <option value="110" selected>110</option>
+            <option value="100">100</option>
+            <option value="111">111</option>
           </select>
         </div>
         <div class="form-group">
@@ -140,16 +153,20 @@ O   1.433  1.013  20.0
 H   2.0    1.5    20.5
 H   1.0    0.5    20.5"></textarea>
       </div>
-      <button id="buildSlabBtn">构建 Slab + 生成 POSCAR</button>
+      <div class="btn-row">
+        <button id="buildSlabBtn">构建 Slab + 生成 POSCAR</button>
+        <button id="generateSlabBtn" class="btn-primary">生成完整 VASP 输入文件</button>
+      </div>
     </section>
 
     <section id="slabResultSection" class="result-section" style="display:none;">
       <div class="summary-box" id="slabSummaryBox"></div>
+      <div class="tabs" id="slabFileTabs"></div>
       <div class="tab-content">
         <pre><code id="slabPoscarContent"></code></pre>
       </div>
       <div class="result-actions">
-        <button id="copySlabBtn">复制 POSCAR</button>
+        <button id="copySlabBtn">复制当前内容</button>
       </div>
     </section>
 
@@ -157,6 +174,16 @@ H   1.0    0.5    20.5"></textarea>
     <h2>POTCAR 库管理</h2>
 
     <section class="analysis-section">
+      <div class="form-row" style="margin-bottom:0.75rem;">
+        <div class="form-group" style="max-width:200px;">
+          <label for="potcarFunctional">POTCAR 泛函</label>
+          <select id="potcarFunctional" onchange="loadPotcarStatus(this.value)">
+            <option value="PBE">PBE</option>
+            <option value="LDA">LDA</option>
+            <option value="PW91">PW91</option>
+          </select>
+        </div>
+      </div>
       <div class="potcar-summary" id="potcarSummary">加载中...</div>
       <div class="potcar-grid" id="potcarGrid"></div>
       <div class="form-row" style="margin-top:1rem;">

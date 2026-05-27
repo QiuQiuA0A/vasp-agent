@@ -3,10 +3,11 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-POTCAR_LIBRARY = os.environ.get(
+POTCAR_LIBRARY = Path(os.environ.get(
     "VASP_POTCAR_LIBRARY",
     str(PROJECT_ROOT / "potcar_library"),
-)
+))
+POTCAR_FUNCTIONAL = os.environ.get("VASP_POTCAR_FUNCTIONAL", "PBE")
 
 # VASP defaults for different calculation types
 VASP_DEFAULTS = {

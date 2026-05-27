@@ -1,6 +1,7 @@
 from app.core.config import VASP_DEFAULTS, COMMON_DEFAULTS
 from app.services.modeling import parse_structure, get_formula, get_element_list_from_xyz
 from app.services.potcar import generate_potcar, assess_potcar_availability
+from app.services.vasp_templates import render_incar, render_kpoints, render_slurm
 from app.models.schemas import CalcType, VASPRequest, CalculationResponse, FileContent
 
 
@@ -15,23 +16,23 @@ def generate_vasp_files(request: VASPRequest) -> CalculationResponse:
     formula = get_formula(mol)
     is_crystal = lattice is not None
 
-    potcar_avail = assess_potcar_availability(elements)
+    potcar_avail = assess_potcar_availability(elements, request.functional)
     missing = [el for el, ok in potcar_avail.items() if not ok]
     if missing:
         warnings.append(
             f"POTCAR files missing for: {', '.join(missing)}. "
-            "Place PBE POTCARs in potcar_library/<element>/POTCAR."
+            f"Place {request.functional} POTCARs in potcar_library/{request.functional}/<element>/POTCAR."
         )
 
     calc_sets = _build_calc_sets(request, is_crystal)
 
     files: list[FileContent] = []
     for calc_step in calc_sets:
-        incar = _generate_incar(calc_step)
+        incar = render_incar(calc_step["params"], calc_step["label"])
         poscar = _generate_poscar(xyz_str, formula, lattice)
-        potcar = generate_potcar(elements)
-        kpoints = _generate_kpoints(is_crystal)
-        slurm = _generate_slurm_script(calc_step["label"], formula)
+        potcar = generate_potcar(elements, request.functional)
+        kpoints = render_kpoints((4, 4, 4) if is_crystal else (1, 1, 1))
+        slurm = render_slurm(_sanitize_jobname(formula))
 
         prefix = calc_step["prefix"]
         files.extend([
@@ -90,21 +91,8 @@ def _build_calc_sets(request: VASPRequest, is_crystal: bool) -> list[dict]:
         return [{"label": "AIMD (NVT)", "prefix": "aimd", "params": params}]
 
 
-def _generate_incar(calc_step: dict) -> str:
-    """Generate INCAR content."""
-    params = calc_step["params"]
-    lines = ["# INCAR - " + calc_step["label"]]
-    for key, val in params.items():
-        if isinstance(val, bool):
-            lines.append(f"{key} = .{'TRUE.' if val else 'FALSE.'}")
-        elif isinstance(val, int):
-            lines.append(f"{key} = {val}")
-        elif isinstance(val, float):
-            lines.append(f"{key} = {val:.6g}")
-        elif isinstance(val, str):
-            lines.append(f"{key} = {val}")
-    lines.append("")
-    return "\n".join(lines)
+def _sanitize_jobname(formula: str) -> str:
+    return "".join(c for c in formula if c.isalnum() or c in "_-")
 
 
 def _generate_poscar(
@@ -178,43 +166,6 @@ def _generate_poscar(
 
     poscar_lines.append("")
     return "\n".join(poscar_lines)
-
-
-def _generate_kpoints(is_crystal: bool) -> str:
-    """Generate KPOINTS. Gamma-only for molecules, auto mesh for crystals."""
-    if is_crystal:
-        return (
-            "Automatic mesh\n"
-            "0\n"
-            "Gamma\n"
-            "4  4  4\n"
-            "0  0  0\n"
-        )
-    return (
-        "Automatic mesh\n"
-        "0\n"
-        "Gamma\n"
-        "1  1  1\n"
-        "0  0  0\n"
-    )
-
-
-def _generate_slurm_script(label: str, formula: str) -> str:
-    """Generate a SLURM submission script."""
-    jobname = "".join(c for c in formula if c.isalnum() or c in "_-")
-    return f"""#!/bin/bash
-#SBATCH --job-name={jobname}
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=32
-#SBATCH --time=24:00:00
-#SBATCH --partition=compute
-#SBATCH --output={jobname}_%j.out
-#SBATCH --error={jobname}_%j.err
-
-module load vasp/6.4.3 2>/dev/null || echo "Adjust module name for your cluster"
-
-mpirun -np $SLURM_NTASKS vasp_std
-"""
 
 
 def _build_summary(request: VASPRequest, formula: str, elements: list[str], n_steps: int) -> str:

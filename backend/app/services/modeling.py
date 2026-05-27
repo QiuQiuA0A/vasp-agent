@@ -1,7 +1,5 @@
-import os
+import io
 import re
-import shutil
-import tempfile
 from collections import Counter
 
 from rdkit import Chem
@@ -123,33 +121,20 @@ def _cif_to_xyz_mol(cif_data: str) -> tuple[str, Chem.Mol, list[tuple[float, flo
     """Parse CIF data to XYZ string, RDKit Mol, and lattice vectors using ASE."""
     from ase.io import read, write
 
-    tmpdir = tempfile.mkdtemp()
-    try:
-        cif_path = os.path.join(tmpdir, "input.cif")
-        xyz_path = os.path.join(tmpdir, "output.xyz")
+    atoms = read(io.StringIO(cif_data), format="cif")
 
-        with open(cif_path, "w") as f:
-            f.write(cif_data)
+    buf = io.StringIO()
+    write(buf, atoms, format="xyz")
+    xyz_str = buf.getvalue()
 
-        atoms = read(cif_path)
-        write(xyz_path, atoms)
-
-        with open(xyz_path, "r") as f:
-            xyz_str = f.read()
-
-        mol = _xyz_to_mol(xyz_str)
-
-        # Extract lattice vectors from ASE atoms
-        cell = atoms.get_cell()
-        lattice = [
-            (float(cell[0][0]), float(cell[0][1]), float(cell[0][2])),
-            (float(cell[1][0]), float(cell[1][1]), float(cell[1][2])),
-            (float(cell[2][0]), float(cell[2][1]), float(cell[2][2])),
-        ]
-
-        return xyz_str, mol, lattice
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    mol = _xyz_to_mol(xyz_str)
+    cell = atoms.get_cell()
+    lattice = [
+        (float(cell[0][0]), float(cell[0][1]), float(cell[0][2])),
+        (float(cell[1][0]), float(cell[1][1]), float(cell[1][2])),
+        (float(cell[2][0]), float(cell[2][1]), float(cell[2][2])),
+    ]
+    return xyz_str, mol, lattice
 
 
 def get_formula(mol: Chem.Mol) -> str:

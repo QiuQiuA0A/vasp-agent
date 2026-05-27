@@ -183,8 +183,15 @@ echo "=== Surface: metals list ==="
 RESP=$(curl -sf "$BASE/api/v1/surface/metals")
 assert_contains "surface:metals Fe" "Fe" "$RESP"
 assert_contains "surface:metals bcc" "bcc" "$RESP"
+assert_contains "surface:metals Cr" "Cr" "$RESP"
+assert_contains "surface:metals Cu" "Cu" "$RESP"
+assert_contains "surface:metals Al" "Al" "$RESP"
+assert_contains "surface:metals Ni" "Ni" "$RESP"
+assert_contains "surface:metals Zn" "Zn" "$RESP"
+assert_contains "surface:metals Mg" "Mg" "$RESP"
+assert_contains "surface:metals Ti" "Ti" "$RESP"
 
-echo "=== Surface: build Fe(110) slab ==="
+echo "=== Surface: build Fe(110) slab (BCC) ==="
 PAYLOAD='{"metal":"Fe","surface":"110","layers":4,"vacuum":15.0,"fix_bottom":2}'
 RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
   -H "Content-Type: application/json" -d "$PAYLOAD")
@@ -193,12 +200,94 @@ assert_contains "surface:slab selective" "Selective dynamics" "$RESP"
 assert_contains "surface:slab fixed" "F F F" "$RESP"
 assert_contains "surface:slab free" "T T T" "$RESP"
 
+echo "=== Surface: build Cr(100) slab (BCC) ==="
+PAYLOAD='{"metal":"Cr","surface":"100","layers":3,"vacuum":12.0,"fix_bottom":1}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Cr" "Cr(100)" "$RESP"
+assert_contains "surface:Cr selective" "Selective dynamics" "$RESP"
+
+echo "=== Surface: build Cu(110) slab (FCC) ==="
+PAYLOAD='{"metal":"Cu","surface":"110","layers":4,"vacuum":15.0,"fix_bottom":2}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Cu" "Cu(110)" "$RESP"
+
+echo "=== Surface: build Al(111) slab (FCC) ==="
+PAYLOAD='{"metal":"Al","surface":"111","layers":3,"vacuum":12.0,"fix_bottom":1}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Al" "Al(111)" "$RESP"
+
+echo "=== Surface: build Ni(100) slab (FCC) ==="
+PAYLOAD='{"metal":"Ni","surface":"100","layers":4,"vacuum":15.0,"fix_bottom":2}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Ni" "Ni(100)" "$RESP"
+
+echo "=== Surface: build Mg(0001) slab (HCP) ==="
+PAYLOAD='{"metal":"Mg","surface":"0001","layers":4,"vacuum":15.0,"fix_bottom":2}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Mg" "Mg(0001)" "$RESP"
+assert_contains "surface:Mg selective" "Selective dynamics" "$RESP"
+
+echo "=== Surface: build Zn(10-10) slab (HCP) ==="
+PAYLOAD='{"metal":"Zn","surface":"10-10","layers":3,"vacuum":12.0,"fix_bottom":1}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Zn" "Zn(10-10)" "$RESP"
+
+echo "=== Surface: build Ti(0001) slab (HCP) ==="
+PAYLOAD='{"metal":"Ti","surface":"0001","layers":4,"vacuum":15.0,"fix_bottom":2}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surface:Ti" "Ti(0001)" "$RESP"
+
 echo "=== Surface: build Fe(110) with molecule ==="
 PAYLOAD='{"metal":"Fe","surface":"110","layers":4,"vacuum":15.0,"fix_bottom":2,"xyz":"3\nH2O\nO   1.4  1.0  20.0\nH   2.0  1.5  20.5\nH   1.0  0.5  20.5"}'
 RESP=$(curl -sf -X POST "$BASE/api/v1/surface/build" \
   -H "Content-Type: application/json" -d "$PAYLOAD")
 assert_contains "surface:mol summary" "H(2)" "$RESP"
 assert_contains "surface:mol poscar" "Selective dynamics" "$RESP"
+
+echo "=== Surface: generate Fe(110) full VASP inputs ==="
+PAYLOAD='{"metal":"Fe","surface":"110","layers":4,"vacuum":15.0,"fix_bottom":2,"name":"test-fe"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surf-gen:metal" "Fe" "$RESP"
+assert_contains "surf-gen:surface" "110" "$RESP"
+assert_contains "surf-gen:name" "test-fe" "$RESP"
+assert_contains "surf-gen:INCAR" "INCAR" "$RESP"
+assert_contains "surf-gen:POSCAR" "POSCAR" "$RESP"
+assert_contains "surf-gen:POTCAR" "POTCAR" "$RESP"
+assert_contains "surf-gen:KPOINTS" "KPOINTS" "$RESP"
+assert_contains "surf-gen:SLURM" "run.slurm" "$RESP"
+assert_contains "surf-gen:ISIF=2" "ISIF = 2" "$RESP"
+assert_contains "surf-gen:ISMEAR=1" "ISMEAR = 1" "$RESP"
+assert_contains "surf-gen:kpoints mesh" "6  6  1" "$RESP"
+N_SURF_FILES=$(echo "$RESP" | "$PYTHON" -c "import sys,json; print(len(json.load(sys.stdin)['files']))" 2>/dev/null || echo "0")
+assert_eq "surf-gen:file count" "5" "$N_SURF_FILES"
+
+echo "=== Surface: generate Fe(100) with adsorbate ==="
+PAYLOAD='{"metal":"Fe","surface":"100","layers":3,"vacuum":12.0,"fix_bottom":1,"xyz":"3\nH2O\nO   1.4  1.0  20.0\nH   2.0  1.5  20.5\nH   1.0  0.5  20.5","name":"fe-oh2"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surf-gen2:metal" "Fe" "$RESP"
+assert_contains "surf-gen2:POTCAR" "POTCAR" "$RESP"
+assert_contains "surf-gen2:INCAR:ISIF" "ISIF = 2" "$RESP"
+assert_contains "surf-gen2:selective" "Selective dynamics" "$RESP"
+N_SURF_FILES2=$(echo "$RESP" | "$PYTHON" -c "import sys,json; print(len(json.load(sys.stdin)['files']))" 2>/dev/null || echo "0")
+assert_eq "surf-gen2:file count" "5" "$N_SURF_FILES2"
+
+echo "=== Surface: generate Cu(111) full VASP inputs ==="
+PAYLOAD='{"metal":"Cu","surface":"111","layers":3,"vacuum":12.0,"fix_bottom":1,"name":"cu-test"}'
+RESP=$(curl -sf -X POST "$BASE/api/v1/surface/generate" \
+  -H "Content-Type: application/json" -d "$PAYLOAD")
+assert_contains "surf-gen3:Cu" "Cu" "$RESP"
+assert_contains "surf-gen3:INCAR" "INCAR" "$RESP"
+N_SURF_FILES3=$(echo "$RESP" | "$PYTHON" -c "import sys,json; print(len(json.load(sys.stdin)['files']))" 2>/dev/null || echo "0")
+assert_eq "surf-gen3:file count" "5" "$N_SURF_FILES3"
 
 # ==== SECTION: Parser endpoints ====
 echo "=== Parser endpoints (skipped — file upload requires real VASP outputs) ==="

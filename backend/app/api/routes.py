@@ -2,9 +2,11 @@ import io
 import zipfile
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
-from app.models.schemas import VASPRequest, CalculationResponse, SurfaceRequest, SurfaceResponse
+from app.models.schemas import VASPRequest, CalculationResponse, SurfaceRequest, SurfaceResponse, SurfaceGenerateRequest
 from app.services.vasp_input import generate_vasp_files
-from app.services.surface import build_slab, get_poscar, list_metals, SlabConfig
+from app.services.surface import (
+    build_slab, get_poscar, list_metals, SlabConfig, generate_surface_files,
+)
 from app.services.parsers.outcar import parse_outcar
 from app.services.parsers.eigenval import parse_eigenval
 from app.services.parsers.oszicar import parse_oszicar
@@ -13,6 +15,7 @@ from app.services.parsers.xdatcar import parse_xdatcar
 from app.services.parsers.contcar import parse_contcar, contcar_to_xyz
 from app.services.potcar_manager import (
     library_stats,
+    list_functionals,
     detect_element,
     import_potcar,
     remove_potcar,
@@ -259,9 +262,15 @@ def _extract_atom_trajectory(result, atom_idx: int) -> list[list[float]]:
 
 
 @router.get("/potcar/status")
-async def potcar_status():
-    """Get POTCAR library status: which elements are available."""
-    return library_stats()
+async def potcar_status(functional: str = "PBE"):
+    """Get POTCAR library status for a given functional."""
+    return library_stats(functional)
+
+
+@router.get("/potcar/functionals")
+async def potcar_functionals():
+    """List available XC functionals with element counts."""
+    return list_functionals()
 
 
 @router.post("/potcar/import")
@@ -356,6 +365,48 @@ async def surface_build(request: SurfaceRequest):
             counts=result.counts,
             summary=" | ".join(summary_parts),
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+
+
+@router.post("/surface/generate")
+async def surface_generate(request: SurfaceGenerateRequest):
+    """Build slab + generate all VASP input files (INCAR, POSCAR, POTCAR, KPOINTS, SLURM).
+
+    Combines slab building with auto-generated INCAR/KPOINTS optimized for
+    metal surface relaxation (ISIF=2, ISMEAR=1, Monkhorst-Pack k-points with kz=1).
+    """
+    from app.models.schemas import FileContent
+
+    try:
+        config = SlabConfig(
+            metal=request.metal,
+            surface=request.surface,
+            layers=request.layers,
+            vacuum=request.vacuum,
+            fix_bottom=request.fix_bottom,
+        )
+        slab = build_slab(config)
+        files = generate_surface_files(config, slab, request.xyz, request.functional)
+
+        file_list = [
+            FileContent(filename=name, content=content)
+            for name, content in files.items()
+        ]
+
+        result = get_poscar(slab, config, request.xyz)
+        summary_parts = [f"{result.metal}({result.surface}), {result.n_slab_atoms} slab atoms"]
+        if result.n_molecule_atoms > 0:
+            summary_parts.append(f"{result.n_molecule_atoms} molecule atoms")
+        return {
+            "metal": config.metal,
+            "surface": config.surface,
+            "name": request.name,
+            "files": file_list,
+            "summary": " | ".join(summary_parts),
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except NotImplementedError as e:

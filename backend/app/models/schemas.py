@@ -34,6 +34,7 @@ class VASPRequest(BaseModel):
     encut: Optional[int] = Field(default=None, ge=100, le=1500)
     nsw: Optional[int] = Field(default=None, ge=0, le=50000)
     temperature: Optional[float] = Field(default=None, ge=0, le=5000)
+    functional: str = Field(default="PBE", max_length=10, description="XC functional: PBE, LDA, PW91")
 
 
 class FileContent(BaseModel):
@@ -71,3 +72,15 @@ class SurfaceResponse(BaseModel):
     elements: list[str]
     counts: list[int]
     summary: str = ""
+
+
+class SurfaceGenerateRequest(BaseModel):
+    """Request to generate full VASP input set for a surface calculation."""
+    metal: str = Field(min_length=1, max_length=3)
+    surface: str = Field(min_length=1, max_length=10)
+    layers: int = Field(default=4, ge=1, le=20)
+    vacuum: float = Field(default=15.0, ge=5.0, le=50.0)
+    fix_bottom: int = Field(default=2, ge=0, le=10)
+    xyz: str | None = Field(default=None, max_length=100000)
+    name: str = Field(default="slab", max_length=100)
+    functional: str = Field(default="PBE", max_length=10, description="XC functional: PBE, LDA, PW91")

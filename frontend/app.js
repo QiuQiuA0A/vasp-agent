@@ -65,6 +65,8 @@ function buildPayload() {
   const tempVal = parseFloat(document.getElementById("temperature").value);
   if (tempVal) payload.temperature = tempVal;
 
+  payload.functional = document.getElementById("functional").value || "PBE";
+
   return payload;
 }
 
@@ -92,6 +94,54 @@ function displayResult(data) {
   });
 
   if (data.files.length > 0) showFile(0);
+
+  // Show 3D structure viewer from POSCAR
+  var poscarFile = data.files.find(function (f) { return f.filename.indexOf("POSCAR") !== -1; });
+  if (poscarFile) showStructure(poscarFile.content);
+}
+
+function showStructure(poscarContent) {
+  var viewerDiv = document.getElementById("structureViewer");
+  viewerDiv.style.display = "";
+  var viewerEl = document.getElementById("molViewer");
+
+  // Parse POSCAR: extract lattice + atom positions
+  var lines = poscarContent.split("\n").filter(function (l) { return l.trim() !== ""; });
+  if (lines.length < 8) return;
+
+  // Line 0: comment, Line 1: scale, Lines 2-4: lattice, Lines 5-6: elements + counts
+  var scale = parseFloat(lines[1]) || 1.0;
+  var latLines = lines.slice(2, 5).map(function (l) { return l.trim().split(/\s+/).map(Number); });
+  var species = lines[5].trim().split(/\s+/);
+  var counts = lines[6].trim().split(/\s+/).map(Number);
+  var totalAtoms = counts.reduce(function (a, b) { return a + b; }, 0);
+
+  // Find 'Cartesian' or 'Direct' marker
+  var coordStart = 7;
+  for (var k = 7; k < Math.min(lines.length, 12); k++) {
+    if (lines[k].match(/^[Cc]artesian|^[Dd]irect|^Selective/i)) { coordStart = k + 1; break; }
+  }
+
+  // Build XYZ string for 3Dmol
+  var xyz = totalAtoms + "\nstructure\n";
+  var elList = [];
+  species.forEach(function (s, i) { for (var j = 0; j < counts[i]; j++) elList.push(s); });
+
+  for (var i = 0; i < totalAtoms && (coordStart + i) < lines.length; i++) {
+    var parts = lines[coordStart + i].trim().split(/\s+/);
+    var el = elList[i] || "X";
+    var x = parseFloat(parts[0]) || 0;
+    var y = parseFloat(parts[1]) || 0;
+    var z = parseFloat(parts[2]) || 0;
+    xyz += el + " " + x.toFixed(6) + " " + y.toFixed(6) + " " + z.toFixed(6) + "\n";
+  }
+
+  viewerEl.innerHTML = "";
+  var viewer = $3Dmol.createViewer(viewerEl, { defaultcolors: $3Dmol.elementColors.Jmol });
+  viewer.addModel(xyz, "xyz");
+  viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.3 } });
+  viewer.zoomTo();
+  viewer.render();
 }
 
 function showFile(index) {
@@ -232,11 +282,13 @@ async function analyzeFile(url, file) {
 
 // -- POTCAR Library Management --
 
-async function loadPotcarStatus() {
+async function loadPotcarStatus(functional) {
+  functional = functional || "PBE";
   try {
-    const resp = await fetch("/api/v1/potcar/status");
+    const resp = await fetch("/api/v1/potcar/status?functional=" + encodeURIComponent(functional));
     const data = await resp.json();
     renderPotcarGrid(data);
+    document.getElementById("potcarFunctional").value = functional;
   } catch (e) {
     document.getElementById("potcarSummary").textContent = "无法加载 POTCAR 库状态";
   }
@@ -309,17 +361,34 @@ document.getElementById("importPotcarBtn").addEventListener("click", async funct
 
 // -- Surface Slab Building --
 
-document.getElementById("buildSlabBtn").addEventListener("click", buildSlab);
-document.getElementById("copySlabBtn").addEventListener("click", function () {
-  var content = document.getElementById("slabPoscarContent").textContent;
-  if (!content) return;
-  navigator.clipboard.writeText(content).then(function () {
-    var btn = document.getElementById("copySlabBtn");
-    var orig = btn.textContent;
-    btn.textContent = "已复制!";
-    setTimeout(function () { btn.textContent = orig; }, 1500);
+var surfaceMap = {
+  bcc: ["110", "100", "111"],
+  fcc: ["110", "100", "111"],
+  hcp: ["0001", "10-10"],
+};
+var metalTypeMap = {
+  Fe: "bcc", Cr: "bcc",
+  Cu: "fcc", Al: "fcc", Ni: "fcc",
+  Zn: "hcp", Mg: "hcp", Ti: "hcp",
+};
+
+document.getElementById("surfaceMetal").addEventListener("change", function () {
+  var metal = this.value;
+  var type = metalTypeMap[metal] || "bcc";
+  var surfaces = surfaceMap[type] || ["110", "100", "111"];
+  var select = document.getElementById("surfaceIndex");
+  select.innerHTML = "";
+  surfaces.forEach(function (s, i) {
+    var opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = metal + "(" + s + ")";
+    if (i === 0) opt.selected = true;
+    select.appendChild(opt);
   });
 });
+
+document.getElementById("buildSlabBtn").addEventListener("click", buildSlab);
+document.getElementById("generateSlabBtn").addEventListener("click", generateSlab);
 
 async function buildSlab() {
   var btn = document.getElementById("buildSlabBtn");
@@ -360,6 +429,92 @@ async function buildSlab() {
     btn.textContent = "构建 Slab + 生成 POSCAR";
   }
 }
+
+async function generateSlab() {
+  var btn = document.getElementById("generateSlabBtn");
+  btn.disabled = true;
+  btn.textContent = "生成中...";
+
+  var xyzText = document.getElementById("surfaceXyz").value.trim();
+  var payload = {
+    metal: document.getElementById("surfaceMetal").value,
+    surface: document.getElementById("surfaceIndex").value,
+    layers: parseInt(document.getElementById("surfaceLayers").value) || 4,
+    vacuum: parseFloat(document.getElementById("surfaceVacuum").value) || 15.0,
+    fix_bottom: parseInt(document.getElementById("surfaceFixBottom").value) || 2,
+    name: document.getElementById("name").value || "slab",
+  };
+  if (xyzText) payload.xyz = xyzText;
+  payload.functional = document.getElementById("functional").value || "PBE";
+
+  try {
+    var resp = await fetch("/api/v1/surface/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      var err = await resp.json();
+      showError(err.detail || "生成失败");
+      return;
+    }
+
+    var data = await resp.json();
+    displaySlabResult(data);
+  } catch (e) {
+    showError("网络错误: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "生成完整 VASP 输入文件";
+  }
+}
+
+function displaySlabResult(data) {
+  document.getElementById("slabResultSection").style.display = "";
+  document.getElementById("slabSummaryBox").textContent = data.summary || "";
+
+  var files = data.files || [];
+  var tabsDiv = document.getElementById("slabFileTabs");
+  tabsDiv.innerHTML = "";
+
+  files.forEach(function (f, i) {
+    var btn = document.createElement("button");
+    btn.className = "tab-btn";
+    btn.textContent = f.filename;
+    btn.onclick = function () { showSlabFile(i, files); };
+    tabsDiv.appendChild(btn);
+  });
+
+  if (files.length > 0) showSlabFile(0, files);
+}
+
+var slabFiles = [];
+function showSlabFile(index, files) {
+  slabFiles = files;
+  document.getElementById("slabPoscarContent").textContent = files[index].content;
+
+  var btns = document.querySelectorAll("#slabFileTabs .tab-btn");
+  btns.forEach(function (btn, i) {
+    if (i === index) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+// Update copy button to work with slab files
+document.getElementById("copySlabBtn").addEventListener("click", function () {
+  var content = document.getElementById("slabPoscarContent").textContent;
+  if (!content) return;
+  navigator.clipboard.writeText(content).then(function () {
+    var btn = document.getElementById("copySlabBtn");
+    var orig = btn.textContent;
+    btn.textContent = "已复制!";
+    setTimeout(function () { btn.textContent = orig; }, 1500);
+  });
+});
 
 // Load POTCAR status on page load
 loadPotcarStatus();

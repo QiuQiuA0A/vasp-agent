@@ -1,5 +1,5 @@
 from pathlib import Path
-from app.core.config import POTCAR_LIBRARY
+from app.core.config import POTCAR_LIBRARY, POTCAR_FUNCTIONAL
 
 
 POTCAR_MAP = {
@@ -40,31 +40,31 @@ POTCAR_MAP = {
 }
 
 
-def potcar_path(element: str) -> Path:
-    """Get path to POTCAR for a given element symbol."""
+def potcar_path(element: str, functional: str | None = None) -> Path:
+    """Get path to POTCAR for a given element symbol under functional subdir."""
+    func = functional or POTCAR_FUNCTIONAL
     subfolder = POTCAR_MAP.get(element, element)
-    return Path(POTCAR_LIBRARY) / subfolder / "POTCAR"
+    return POTCAR_LIBRARY / func / subfolder / "POTCAR"
 
 
-def assess_potcar_availability(elements: list[str]) -> dict[str, bool]:
+def assess_potcar_availability(elements: list[str],
+                               functional: str | None = None) -> dict[str, bool]:
     """Check which elements have POTCAR files available."""
-    result = {}
-    for el in elements:
-        path = potcar_path(el)
-        result[el] = path.exists()
-    return result
+    func = functional or POTCAR_FUNCTIONAL
+    return {el: potcar_path(el, func).exists() for el in elements}
 
 
-def generate_potcar(elements: list[str]) -> str:
+def generate_potcar(elements: list[str], functional: str | None = None) -> str:
     """Concatenate POTCAR files for given elements in order."""
+    func = functional or POTCAR_FUNCTIONAL
     parts = []
     for el in elements:
-        path = potcar_path(el)
+        path = potcar_path(el, func)
         if path.exists():
             parts.append(path.read_text())
         else:
             parts.append(
                 f"# POTCAR for {el} not found at {path}\n"
-                f"# Place the PBE POTCAR for {el} in {path.parent}\n"
+                f"# Place the {func} POTCAR for {el} in {path.parent}\n"
             )
     return "\n".join(parts)
