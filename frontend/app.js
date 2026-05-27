@@ -307,6 +307,60 @@ document.getElementById("importPotcarBtn").addEventListener("click", async funct
   }
 });
 
+// -- Surface Slab Building --
+
+document.getElementById("buildSlabBtn").addEventListener("click", buildSlab);
+document.getElementById("copySlabBtn").addEventListener("click", function () {
+  var content = document.getElementById("slabPoscarContent").textContent;
+  if (!content) return;
+  navigator.clipboard.writeText(content).then(function () {
+    var btn = document.getElementById("copySlabBtn");
+    var orig = btn.textContent;
+    btn.textContent = "已复制!";
+    setTimeout(function () { btn.textContent = orig; }, 1500);
+  });
+});
+
+async function buildSlab() {
+  var btn = document.getElementById("buildSlabBtn");
+  btn.disabled = true;
+  btn.textContent = "构建中...";
+
+  var xyzText = document.getElementById("surfaceXyz").value.trim();
+  var payload = {
+    metal: document.getElementById("surfaceMetal").value,
+    surface: document.getElementById("surfaceIndex").value,
+    layers: parseInt(document.getElementById("surfaceLayers").value) || 4,
+    vacuum: parseFloat(document.getElementById("surfaceVacuum").value) || 15.0,
+    fix_bottom: parseInt(document.getElementById("surfaceFixBottom").value) || 2,
+  };
+  if (xyzText) payload.xyz = xyzText;
+
+  try {
+    var resp = await fetch("/api/v1/surface/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      var err = await resp.json();
+      showError(err.detail || "Slab 构建失败");
+      return;
+    }
+
+    var data = await resp.json();
+    document.getElementById("slabResultSection").style.display = "";
+    document.getElementById("slabSummaryBox").textContent = data.summary;
+    document.getElementById("slabPoscarContent").textContent = data.poscar;
+  } catch (e) {
+    showError("网络错误: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "构建 Slab + 生成 POSCAR";
+  }
+}
+
 // Load POTCAR status on page load
 loadPotcarStatus();
 

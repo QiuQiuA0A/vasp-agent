@@ -47,3 +47,27 @@ class CalculationResponse(BaseModel):
     files: list[FileContent]
     warnings: list[str] = []
     summary: str = ""
+
+
+class SurfaceRequest(BaseModel):
+    """Request to build a metal slab with optional adsorbed molecule."""
+    metal: str = Field(min_length=1, max_length=3, description="Element symbol, e.g. Fe")
+    surface: str = Field(min_length=1, max_length=10, description="Miller index, e.g. 110")
+    layers: int = Field(default=4, ge=1, le=20)
+    vacuum: float = Field(default=15.0, ge=5.0, le=50.0)
+    fix_bottom: int = Field(default=2, ge=0, le=10)
+    # Molecule (Method B — user-provided positioned XYZ)
+    xyz: str | None = Field(default=None, max_length=100000, description="XYZ with molecule pre-positioned above surface")
+
+
+class SurfaceResponse(BaseModel):
+    """Result of building a slab."""
+    metal: str
+    surface: str
+    n_slab_atoms: int
+    n_molecule_atoms: int
+    n_total: int
+    poscar: str
+    elements: list[str]
+    counts: list[int]
+    summary: str = ""

@@ -7,3 +7,6 @@ backend/potcar_library/*
 *.egg-info/
 dist/
 *.zip
+node_modules/
+package-lock.json
+package.json

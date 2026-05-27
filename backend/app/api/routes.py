@@ -2,8 +2,9 @@ import io
 import zipfile
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
-from app.models.schemas import VASPRequest, CalculationResponse
+from app.models.schemas import VASPRequest, CalculationResponse, SurfaceRequest, SurfaceResponse
 from app.services.vasp_input import generate_vasp_files
+from app.services.surface import build_slab, get_poscar, list_metals, SlabConfig
 from app.services.parsers.outcar import parse_outcar
 from app.services.parsers.eigenval import parse_eigenval
 from app.services.parsers.oszicar import parse_oszicar
@@ -307,3 +308,55 @@ async def potcar_detect(file: UploadFile = File(...)):
     if not elem:
         raise HTTPException(400, "Cannot detect element — is this a valid VASP POTCAR?")
     return {"element": elem}
+
+
+# ── Surface slab building ────────────────────────────────────────────────
+
+
+@router.get("/surface/metals")
+async def surface_metals():
+    """List registered metals with available surface orientations."""
+    return list_metals()
+
+
+@router.post("/surface/build", response_model=SurfaceResponse)
+async def surface_build(request: SurfaceRequest):
+    """Build a metal slab, optionally with an adsorbed molecule.
+
+    Supports Method B: user provides a pre-positioned XYZ for the adsorbate.
+    """
+    try:
+        config = SlabConfig(
+            metal=request.metal,
+            surface=request.surface,
+            layers=request.layers,
+            vacuum=request.vacuum,
+            fix_bottom=request.fix_bottom,
+        )
+        slab = build_slab(config)
+        result = get_poscar(slab, config, request.xyz)
+
+        summary_parts = [f"{result.metal}({result.surface}), {result.n_slab_atoms} 个金属原子"]
+        if result.n_molecule_atoms > 0:
+            summary_parts.append(
+                f"吸附分子: {result.n_molecule_atoms} 个原子 "
+                f"({' + '.join(f'{el}({c})' for el, c in zip(result.elements[1:], result.counts[1:]))})"
+            )
+        else:
+            summary_parts.append("无吸附分子（纯表面）")
+
+        return SurfaceResponse(
+            metal=result.metal,
+            surface=result.surface,
+            n_slab_atoms=result.n_slab_atoms,
+            n_molecule_atoms=result.n_molecule_atoms,
+            n_total=result.n_total,
+            poscar=result.poscar,
+            elements=result.elements,
+            counts=result.counts,
+            summary=" | ".join(summary_parts),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
