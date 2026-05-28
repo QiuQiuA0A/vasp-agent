@@ -1,8 +1,6 @@
 services:
   vasp-agent:
     build: .
-    ports:
-      - "8000:8000"
     environment:
       - VASP_API_KEY=${VASP_API_KEY:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
@@ -18,6 +16,22 @@ services:
       - ${VASP_POTCAR_HOST:-./potcar_library}:/potcar
       - incar_templates:/app/incar_templates
     restart: unless-stopped
+    # Port 8000 is internal only — Caddy is the public front door
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      - vasp-agent
 
 volumes:
   incar_templates:
+  caddy_data:
+  caddy_config:
