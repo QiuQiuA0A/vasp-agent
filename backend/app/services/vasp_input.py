@@ -284,30 +284,16 @@ def _classify_lattice(lattice: list[tuple[float, float, float]]) -> str:
     return "generic"
 
 
-def _guess_band_path(lattice: list[tuple[float, float, float]] | None) -> list[tuple[float, float, float, str]]:
-    """Guess the high-symmetry k-path for a lattice, with proper classification.
+_BAND_PATH_ALIAS = {"cubic": "fcc", "hexagonal": "hcp"}
 
-    Uses standardized paths from Seek-path / AFLOW conventions.
-    Falls back to a generic Γ→X→M→Y→Γ→Z path for unrecognized lattices.
-    """
+
+def _guess_band_path(lattice: list[tuple[float, float, float]] | None) -> list[tuple[float, float, float, str]]:
+    """Guess high-symmetry k-path from lattice vectors."""
     if lattice is None:
         return BAND_PATHS["generic"]
-
     lat_type = _classify_lattice(lattice)
-
-    # Map classification to standard paths:
-    # - cubic/fcc → unified cubic path (Γ-X-U-K-Γ-L-W-K)
-    # - bcc → special bcc path (we detect cubic but can't separate bcc from vectors)
-    # - tetragonal → Γ-X-M-Γ-Z-R-A-Z
-    # - orthorhombic → Γ-X-S-Y-Γ-Z-U-R-T-Z
-    # - hexagonal → hcp path
-    # - monoclinic / generic → basic Γ-X-M-Y-Γ-Z path
-    if lat_type == "cubic":
-        return BAND_PATHS["fcc"]
-    if lat_type == "hexagonal":
-        return BAND_PATHS["hcp"]
-
-    return BAND_PATHS.get(lat_type, BAND_PATHS["generic"])
+    key = _BAND_PATH_ALIAS.get(lat_type, lat_type)
+    return BAND_PATHS.get(key, BAND_PATHS["generic"])
 
 
 def _build_summary(request: VASPRequest, formula: str, elements: list[str], n_steps: int) -> str:

@@ -1,23 +1,15 @@
-"""User-defined INCAR parameter templates — save, list, load, delete.
-
-Templates are stored as individual JSON files under INCAR_TEMPLATES_DIR.
-Each file: {"name": "...", "params": {"ENCUT": 520, ...}}
-"""
+"""User-defined INCAR parameter templates."""
 
 import json
-import re
-from pathlib import Path
 
 from app.core.config import INCAR_TEMPLATES_DIR
 
 
 def _slug(name: str) -> str:
-    """Convert a display name to a filesystem-safe slug."""
-    slug = re.sub(r"[^\w\-]", "_", name).strip("_") or "unnamed"
-    return slug
+    return "".join(c if c.isalnum() or c in "_-" else "_" for c in name).strip("_") or "unnamed"
 
 
-def _path(name: str) -> Path:
+def _path(name: str):
     return INCAR_TEMPLATES_DIR / f"{_slug(name)}.json"
 
 
