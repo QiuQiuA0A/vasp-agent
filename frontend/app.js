@@ -20,6 +20,7 @@ document.getElementById("copyBtn").addEventListener("click", copyCurrent);
 async function generateFiles() {
   const btn = document.getElementById("generateBtn");
   btn.disabled = true;
+  btn.classList.add("loading");
   btn.textContent = "生成中...";
   hideMessages();
 
@@ -45,6 +46,7 @@ async function generateFiles() {
     showError("网络错误: " + e.message + "。后端是否在运行？");
   } finally {
     btn.disabled = false;
+    btn.classList.remove("loading");
     btn.textContent = "生成 VASP 输入文件";
   }
 }
@@ -179,6 +181,7 @@ async function downloadZip() {
 
   const btn = document.getElementById("downloadZipBtn");
   btn.disabled = true;
+  btn.classList.add("loading");
   btn.textContent = "下载中...";
 
   try {
@@ -205,6 +208,7 @@ async function downloadZip() {
     showError("下载失败: " + e.message);
   } finally {
     btn.disabled = false;
+    btn.classList.remove("loading");
     btn.textContent = "下载全部文件 (.zip)";
   }
 }
@@ -336,13 +340,13 @@ function renderPotcarGrid(data) {
   grid.innerHTML = html;
 }
 
-document.getElementById("importPotcarBtn").addEventListener("click", async function () {
-  var fileInput = document.getElementById("potcarFile");
-  var files = fileInput.files;
-  if (!files.length) { showError("请先选择 POTCAR 文件"); return; }
+document.getElementById("potcarFile").addEventListener("change", async function () {
+  var files = this.files;
+  if (!files.length) return;
 
-  var btn = document.getElementById("importPotcarBtn");
-  btn.disabled = true;
+  var btn = document.querySelector(".potcar-import-btn");
+  btn.style.pointerEvents = "none";
+  btn.style.opacity = "0.6";
   btn.textContent = "导入中...";
 
   var formData = new FormData();
@@ -363,9 +367,10 @@ document.getElementById("importPotcarBtn").addEventListener("click", async funct
   } catch (e) {
     showError("导入失败: " + e.message);
   } finally {
-    btn.disabled = false;
+    btn.style.pointerEvents = "";
+    btn.style.opacity = "";
     btn.textContent = "导入";
-    fileInput.value = "";
+    this.value = "";
   }
 });
 
@@ -403,6 +408,7 @@ document.getElementById("generateSlabBtn").addEventListener("click", generateSla
 async function buildSlab() {
   var btn = document.getElementById("buildSlabBtn");
   btn.disabled = true;
+  btn.classList.add("loading");
   btn.textContent = "构建中...";
 
   var xyzText = document.getElementById("surfaceXyz").value.trim();
@@ -436,6 +442,7 @@ async function buildSlab() {
     showError("网络错误: " + e.message);
   } finally {
     btn.disabled = false;
+    btn.classList.remove("loading");
     btn.textContent = "构建 Slab + 生成 POSCAR";
   }
 }
@@ -443,6 +450,7 @@ async function buildSlab() {
 async function generateSlab() {
   var btn = document.getElementById("generateSlabBtn");
   btn.disabled = true;
+  btn.classList.add("loading");
   btn.textContent = "生成中...";
 
   var xyzText = document.getElementById("surfaceXyz").value.trim();
@@ -476,6 +484,7 @@ async function generateSlab() {
     showError("网络错误: " + e.message);
   } finally {
     btn.disabled = false;
+    btn.classList.remove("loading");
     btn.textContent = "生成完整 VASP 输入文件";
   }
 }

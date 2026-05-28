@@ -8,6 +8,7 @@
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 </head>
 <body>
+<div class="bg-decoration"></div>
 <div class="container">
   <header>
     <h1>VASP Agent</h1>
@@ -112,6 +113,7 @@
     <h2>金属表面建模 (Beta)</h2>
 
     <section class="input-section">
+      <p class="section-desc">根据金属晶格类型（BCC/FCC/HCP）和 Miller 指数自动构建 Slab 模型，可选吸附分子。生成适用于表面催化计算的 VASP 输入文件。</p>
       <div class="form-row">
         <div class="form-group">
           <label for="surfaceMetal">金属</label>
@@ -175,34 +177,10 @@ H   1.0    0.5    20.5"></textarea>
     </section>
 
     <hr class="section-divider">
-    <h2>POTCAR 库管理</h2>
-
-    <section class="analysis-section">
-      <div class="form-row" style="margin-bottom:0.75rem;">
-        <div class="form-group" style="max-width:200px;">
-          <label for="potcarFunctional">POTCAR 泛函</label>
-          <select id="potcarFunctional" onchange="loadPotcarStatus(this.value)">
-            <option value="PBE">PBE</option>
-            <option value="LDA">LDA</option>
-            <option value="PW91">PW91</option>
-          </select>
-        </div>
-      </div>
-      <div class="potcar-summary" id="potcarSummary">加载中...</div>
-      <div class="potcar-grid" id="potcarGrid"></div>
-      <div class="form-row" style="margin-top:1rem;">
-        <div class="form-group">
-          <label for="potcarFile">导入 POTCAR 文件</label>
-          <input type="file" id="potcarFile" accept="*" multiple>
-          <button id="importPotcarBtn" class="btn-sm">导入</button>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
     <h2>结果分析</h2>
 
     <section class="analysis-section">
+      <p class="section-desc">上传 VASP 计算输出文件，自动提取能量、能带、收敛性、分子动力学轨迹等关键结果。</p>
       <div class="form-row">
         <div class="form-group">
           <label for="outcarFile">上传 OUTCAR 文件</label>
@@ -246,6 +224,25 @@ H   1.0    0.5    20.5"></textarea>
     <section id="warningSection" class="warning-section" style="display:none;"></section>
     <section id="errorSection" class="error-section" style="display:none;"></section>
   </main>
+
+  <details class="potcar-details" id="potcarDetails">
+    <summary><span class="potcar-summary" id="potcarSummary">加载中...</span></summary>
+    <div class="potcar-details-body">
+      <p class="potcar-details-hint">生成输入文件时，后端会根据结构中的元素自动拼接对应的赝势文件。若库中缺少某元素的 POTCAR，生成将失败。可在此导入缺失的 POTCAR 文件。</p>
+      <div class="potcar-details-row">
+        <select id="potcarFunctional" class="potcar-func-select" onchange="loadPotcarStatus(this.value)">
+          <option value="PBE">PBE</option>
+          <option value="LDA">LDA</option>
+          <option value="PW91">PW91</option>
+        </select>
+        <label class="potcar-import-btn">
+          导入 POTCAR
+          <input type="file" id="potcarFile" accept="*" multiple hidden>
+        </label>
+      </div>
+      <div class="potcar-grid" id="potcarGrid"></div>
+    </div>
+  </details>
 </div>
 
 <script src="app.js"></script>
