@@ -131,6 +131,25 @@
       </div>
     </section>
 
+    <details class="potcar-details" id="potcarDetails">
+      <summary><span class="potcar-summary" id="potcarSummary">加载中...</span></summary>
+      <div class="potcar-details-body">
+        <p class="potcar-details-hint">生成输入文件时，后端会根据结构中的元素自动拼接对应的赝势文件。若库中缺少某元素的 POTCAR，生成将失败。可在此导入缺失的 POTCAR 文件。</p>
+        <div class="potcar-details-row">
+          <select id="potcarFunctional" class="potcar-func-select" onchange="loadPotcarStatus(this.value)">
+            <option value="PBE">PBE</option>
+            <option value="LDA">LDA</option>
+            <option value="PW91">PW91</option>
+          </select>
+          <label class="potcar-import-btn">
+            导入 POTCAR
+            <input type="file" id="potcarFile" accept="*" multiple hidden>
+          </label>
+        </div>
+        <div class="potcar-grid" id="potcarGrid"></div>
+      </div>
+    </details>
+
     <hr class="section-divider">
     <h2>金属表面建模 (Beta)</h2>
 
@@ -246,25 +265,6 @@ H   1.0    0.5    20.5"></textarea>
     <section id="warningSection" class="warning-section" style="display:none;"></section>
     <section id="errorSection" class="error-section" style="display:none;"></section>
   </main>
-
-  <details class="potcar-details" id="potcarDetails">
-    <summary><span class="potcar-summary" id="potcarSummary">加载中...</span></summary>
-    <div class="potcar-details-body">
-      <p class="potcar-details-hint">生成输入文件时，后端会根据结构中的元素自动拼接对应的赝势文件。若库中缺少某元素的 POTCAR，生成将失败。可在此导入缺失的 POTCAR 文件。</p>
-      <div class="potcar-details-row">
-        <select id="potcarFunctional" class="potcar-func-select" onchange="loadPotcarStatus(this.value)">
-          <option value="PBE">PBE</option>
-          <option value="LDA">LDA</option>
-          <option value="PW91">PW91</option>
-        </select>
-        <label class="potcar-import-btn">
-          导入 POTCAR
-          <input type="file" id="potcarFile" accept="*" multiple hidden>
-        </label>
-      </div>
-      <div class="potcar-grid" id="potcarGrid"></div>
-    </div>
-  </details>
 </div>
 
 <script src="app.js"></script>
