@@ -1,3 +1,4 @@
+import asyncio
 import io
 import zipfile
 from fastapi import APIRouter, HTTPException, File, UploadFile
@@ -43,7 +44,7 @@ def _friendly_error(exc: Exception, status_code: int = 400) -> HTTPException:
 async def generate_input_files(request: VASPRequest):
     """Generate VASP input files for a given structure and calculation type."""
     try:
-        return generate_vasp_files(request)
+        return await asyncio.to_thread(generate_vasp_files, request)
     except ValueError as e:
         raise _friendly_error(e, 400)
     except NotImplementedError as e:
@@ -54,7 +55,7 @@ async def generate_input_files(request: VASPRequest):
 async def download_files(request: VASPRequest):
     """Generate VASP input files and return as a ZIP archive."""
     try:
-        result = generate_vasp_files(request)
+        result = await asyncio.to_thread(generate_vasp_files, request)
     except ValueError as e:
         raise _friendly_error(e, 400)
     except NotImplementedError as e:
@@ -138,7 +139,7 @@ async def analyze_outcar(file: UploadFile = File(...)):
     if len(text) < 100:
         raise _friendly_error(ValueError("File too small — not a valid OUTCAR"), 400)
 
-    result = parse_outcar(text)
+    result = await asyncio.to_thread(parse_outcar, text)
     return {
         "filename": file.filename,
         "converged": result.converged,
@@ -165,7 +166,7 @@ async def analyze_eigenval(file: UploadFile = File(...)):
     if len(text) < 50:
         raise _friendly_error(ValueError("File too small — not a valid EIGENVAL"), 400)
 
-    result = parse_eigenval(text)
+    result = await asyncio.to_thread(parse_eigenval, text)
     return result
 
 
@@ -177,7 +178,7 @@ async def analyze_oszicar(file: UploadFile = File(...)):
     if len(text) < 50:
         raise _friendly_error(ValueError("File too small — not a valid OSZICAR"), 400)
 
-    result = parse_oszicar(text)
+    result = await asyncio.to_thread(parse_oszicar, text)
     return {
         "filename": file.filename,
         "total_ionic_steps": result.total_ionic_steps,
@@ -207,7 +208,7 @@ async def analyze_vasprun(file: UploadFile = File(...)):
     if not text.strip().startswith("<?xml") and "<modeling>" not in text[:500]:
         raise _friendly_error(ValueError("Not a valid VASP vasprun.xml"), 400)
 
-    result = parse_vasprun(text)
+    result = await asyncio.to_thread(parse_vasprun, text)
     return {
         "filename": file.filename,
         "system": result.system,
@@ -238,7 +239,7 @@ async def analyze_xdatcar(file: UploadFile = File(...)):
     if len(text) < 100:
         raise _friendly_error(ValueError("File too small — not a valid XDATCAR"), 400)
 
-    result = parse_xdatcar(text)
+    result = await asyncio.to_thread(parse_xdatcar, text)
     return {
         "filename": file.filename,
         "formula": result.formula,
@@ -266,7 +267,7 @@ async def analyze_contcar(file: UploadFile = File(...)):
     if len(text) < 50:
         raise _friendly_error(ValueError("File too small — not a valid CONTCAR"), 400)
 
-    result = parse_contcar(text)
+    result = await asyncio.to_thread(parse_contcar, text)
     return {
         "filename": file.filename,
         "formula": result.formula,
@@ -376,7 +377,7 @@ async def surface_build(request: SurfaceRequest):
             vacuum=request.vacuum,
             fix_bottom=request.fix_bottom,
         )
-        slab = build_slab(config)
+        slab = await asyncio.to_thread(build_slab, config)
         result = get_poscar(slab, config, request.xyz)
 
         summary_parts = [f"{result.metal}({result.surface}), {result.n_slab_atoms} 个金属原子"]
@@ -422,8 +423,8 @@ async def surface_generate(request: SurfaceGenerateRequest):
             vacuum=request.vacuum,
             fix_bottom=request.fix_bottom,
         )
-        slab = build_slab(config)
-        files = generate_surface_files(config, slab, request.xyz, request.functional)
+        slab = await asyncio.to_thread(build_slab, config)
+        files = await asyncio.to_thread(generate_surface_files, config, slab, request.xyz, request.functional)
 
         file_list = [
             FileContent(filename=name, content=content)

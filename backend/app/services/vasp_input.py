@@ -256,20 +256,19 @@ def _classify_lattice(lattice: list[tuple[float, float, float]]) -> str:
     bc = len_eq(nb, nc)
     ac = len_eq(na, nc)
 
+    n_equal = sum([ab, bc, ac])
     all_90 = is_90(alpha) and is_90(beta) and is_90(gamma)
 
-    # Cubic: a = b = c, all 90°
-    if ab and bc and all_90:
+    # Cubic: a = b = c, all 90° → 3 equal pairs
+    if n_equal == 3 and all_90:
         return "cubic"
 
-    # Tetragonal: a = b ≠ c, all 90°
-    if ab and not bc and all_90:
-        return "tetragonal"
-    if ac and not ab and all_90:
+    # Tetragonal: exactly 2 axes equal, all 90° → 1 equal pair
+    if n_equal == 1 and all_90:
         return "tetragonal"
 
-    # Orthorhombic: all angles 90°, all lengths differ
-    if all_90 and not ab and not bc and not ac:
+    # Orthorhombic: all angles 90°, all lengths differ → 0 equal pairs
+    if n_equal == 0 and all_90:
         return "orthorhombic"
 
     # Hexagonal: a = b ≠ c, α = β = 90°, γ = 120°

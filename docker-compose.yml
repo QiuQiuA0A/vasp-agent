@@ -1,0 +1,23 @@
+services:
+  vasp-agent:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - VASP_API_KEY=${VASP_API_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - VASP_MAX_UPLOAD_MB=${VASP_MAX_UPLOAD_MB:-50}
+      - VASP_POTCAR_LIBRARY=/potcar
+      - VASP_SLURM_PARTITION=${VASP_SLURM_PARTITION:-compute}
+      - VASP_SLURM_NODES=${VASP_SLURM_NODES:-1}
+      - VASP_SLURM_NTASKS=${VASP_SLURM_NTASKS:-32}
+      - VASP_SLURM_WALLTIME=${VASP_SLURM_WALLTIME:-24:00:00}
+      - VASP_SLURM_MODULE=${VASP_SLURM_MODULE:-vasp/6.4.3}
+    volumes:
+      - ${VASP_POTCAR_HOST:-./potcar_library}:/potcar
+      - incar_templates:/app/incar_templates
+    restart: unless-stopped
+
+volumes:
+  incar_templates:

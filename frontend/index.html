@@ -9,6 +9,19 @@
 </head>
 <body>
 <div class="bg-decoration"></div>
+
+<div class="apikey-overlay" id="apikeyOverlay">
+  <div class="apikey-modal">
+    <h2>VASP Agent</h2>
+    <p>请输入 API Key 以使用此服务</p>
+    <input type="password" id="apikeyInput" placeholder="粘贴 API Key..." autocomplete="off">
+    <div class="apikey-actions">
+      <button id="apikeySubmit" class="btn-primary">确认</button>
+    </div>
+    <p class="apikey-error" id="apikeyError" style="display:none;"></p>
+  </div>
+</div>
+
 <div class="container">
   <header>
     <h1>VASP Agent</h1>

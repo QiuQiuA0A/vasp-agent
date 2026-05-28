@@ -13,7 +13,14 @@ INCAR_TEMPLATES_DIR = Path(os.environ.get(
     str(PROJECT_ROOT / "incar_templates"),
 ))
 
-# SLURM cluster defaults — override via environment variables
+# ── Server security ────────────────────────────────────────────────────
+
+VASP_API_KEY = os.environ.get("VASP_API_KEY", "")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+MAX_UPLOAD_SIZE = int(os.environ.get("VASP_MAX_UPLOAD_MB", "50")) * 1024 * 1024
+
+# ── SLURM cluster defaults ─────────────────────────────────────────────
 SLURM_PARTITION = os.environ.get("VASP_SLURM_PARTITION", "compute")
 SLURM_NODES = int(os.environ.get("VASP_SLURM_NODES", "1"))
 SLURM_NTASKS_PER_NODE = int(os.environ.get("VASP_SLURM_NTASKS", "32"))

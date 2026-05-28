@@ -1,3 +1,67 @@
+// ── API key — global fetch wrapper ──────────────────────────────────────
+
+var apiKey = localStorage.getItem("vasp_api_key") || "";
+
+(function () {
+  var _fetch = window.fetch;
+  window.fetch = function (url, options) {
+    options = options || {};
+    if (apiKey) {
+      var headers = {};
+      if (options.headers) {
+        if (options.headers instanceof Headers) {
+          options.headers.forEach(function (v, k) { headers[k] = v; });
+        } else {
+          headers = options.headers;
+        }
+      }
+      headers["X-API-Key"] = apiKey;
+      options.headers = headers;
+    }
+    return _fetch(url, options).then(function (resp) {
+      if (resp.status === 401) {
+        localStorage.removeItem("vasp_api_key");
+        apiKey = "";
+        showApiKeyModal();
+      }
+      return resp;
+    });
+  };
+})();
+
+function showApiKeyModal() {
+  document.getElementById("apikeyOverlay").style.display = "flex";
+  document.getElementById("apikeyInput").focus();
+}
+
+function hideApiKeyModal() {
+  document.getElementById("apikeyOverlay").style.display = "none";
+  document.getElementById("apikeyError").style.display = "none";
+}
+
+document.getElementById("apikeySubmit").addEventListener("click", function () {
+  var val = document.getElementById("apikeyInput").value.trim();
+  if (!val) return;
+  apiKey = val;
+  localStorage.setItem("vasp_api_key", val);
+  hideApiKeyModal();
+});
+
+document.getElementById("apikeyInput").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") document.getElementById("apikeySubmit").click();
+});
+
+// If no key stored, show the modal on load. Otherwise, verify it works.
+if (!apiKey) {
+  showApiKeyModal();
+} else {
+  fetch("/api/v1/health").then(function (r) {
+    if (r.status === 401) showApiKeyModal();
+  }).catch(function () {});
+}
+
+// ── Main app state ───────────────────────────────────────────────────────
+
 let currentFiles = [];
 let currentTab = 0;
 let lastPayload = null;
