@@ -8,6 +8,10 @@ POTCAR_LIBRARY = Path(os.environ.get(
     str(PROJECT_ROOT / "app" / "services" / "potcar" / "library"),
 ))
 POTCAR_FUNCTIONAL = os.environ.get("VASP_POTCAR_FUNCTIONAL", "PBE")
+INCAR_TEMPLATES_DIR = Path(os.environ.get(
+    "VASP_INCAR_TEMPLATES",
+    str(PROJECT_ROOT / "incar_templates"),
+))
 
 # SLURM cluster defaults — override via environment variables
 SLURM_PARTITION = os.environ.get("VASP_SLURM_PARTITION", "compute")
@@ -79,6 +83,22 @@ VASP_DEFAULTS = {
         "EDIFF": 1e-6,
         "LVHAR": True,
         "LVTOT": True,
+    },
+    "surface": {
+        "ENCUT": 400,
+        "PREC": "Normal",
+        "ISMEAR": 1,
+        "SIGMA": 0.2,
+        "LREAL": "Auto",
+        "ALGO": "Fast",
+        "NPAR": 4,
+        "LCHARG": True,
+        "LWAVE": False,
+        "IBRION": 2,
+        "ISIF": 2,
+        "NSW": 200,
+        "EDIFF": 1e-5,
+        "EDIFFG": -0.02,
     },
 }
 

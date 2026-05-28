@@ -20,6 +20,7 @@ from pymatgen.core.lattice import Lattice
 from pymatgen.core.surface import SlabGenerator
 from pymatgen.io.ase import AseAtomsAdaptor
 
+from app.core.config import VASP_DEFAULTS
 from app.services.vasp_templates import render_incar, render_kpoints, render_slurm
 
 
@@ -309,29 +310,12 @@ def _inject_selective_dynamics(poscar: str, flags: list[str]) -> str:
 
 # ─── INCAR / KPOINTS / SLURM for slab calculations ────────────────────
 
-SURFACE_INCAR_DEFAULTS = {
-    "ENCUT": 400,
-    "PREC": "Normal",
-    "ISMEAR": 1,
-    "SIGMA": 0.2,
-    "LREAL": "Auto",
-    "ALGO": "Fast",
-    "NPAR": 4,
-    "LCHARG": True,
-    "LWAVE": False,
-    "IBRION": 2,
-    "ISIF": 2,
-    "NSW": 200,
-    "EDIFF": 1e-5,
-    "EDIFFG": -0.02,
-}
-
 
 def generate_incar_for_slab(
     metal: str, surface: str, overrides: dict | None = None
 ) -> str:
     """Generate INCAR content optimized for metal surface relaxation."""
-    params = dict(SURFACE_INCAR_DEFAULTS)
+    params = dict(VASP_DEFAULTS["surface"])
     if overrides:
         params.update(overrides)
     return render_incar(params, f"{metal}({surface}) surface relaxation")

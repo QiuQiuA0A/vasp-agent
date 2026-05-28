@@ -529,6 +529,45 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
 }
 
+.btn-sm.btn-danger {
+  background: transparent;
+  color: var(--error-text);
+  border: 1px solid var(--error-border);
+}
+
+.btn-sm.btn-danger:hover {
+  background: var(--error-bg);
+  box-shadow: none;
+}
+
+.template-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--accent-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.template-select {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  min-width: 0;
+}
+
+.template-bar .btn-sm {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
 .analysis-result {
   margin-top: 1.5rem;
   border: 1px solid var(--border);

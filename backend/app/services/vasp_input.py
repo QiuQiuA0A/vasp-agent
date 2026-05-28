@@ -220,55 +220,94 @@ def _default_kpoints(is_crystal: bool, calc_type: CalcType) -> str:
     return render_kpoints((4, 4, 4))
 
 
-def _guess_band_path(lattice: list[tuple[float, float, float]] | None) -> list[tuple[float, float, float, str]]:
-    """Guess the high-symmetry k-path for a lattice. Falls back to a generic path."""
-    if lattice is None:
-        return [
-            (0.0, 0.0, 0.0, "Γ"),
-            (0.5, 0.0, 0.0, "X"),
-            (0.5, 0.5, 0.0, "M"),
-            (0.0, 0.0, 0.0, "Γ"),
-        ]
+def _classify_lattice(lattice: list[tuple[float, float, float]]) -> str:
+    """Classify the Bravais lattice type from real-space vectors.
 
-    tol = 0.01
-    a = lattice[0]
-    b = lattice[1]
-    c = lattice[2]
+    Returns one of: cubic, tetragonal, orthorhombic, hexagonal, monoclinic, generic.
+    """
+    import math
+
+    a, b, c = lattice
 
     def _norm(v):
-        return (v[0]**2 + v[1]**2 + v[2]**2)**0.5
+        return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
+
     def _angle(v1, v2):
         dot = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
-        n1, n2 = _norm(v1), _norm(v2)
-        return dot / (n1 * n2 + 1e-12)
-    def _eq(x, y):
-        return abs(x - y) < tol
+        n = _norm(v1) * _norm(v2)
+        cos = max(-1.0, min(1.0, dot / (n + 1e-12)))
+        return math.degrees(math.acos(cos))
 
     na, nb, nc = _norm(a), _norm(b), _norm(c)
-    angles = (_angle(b, c), _angle(a, c), _angle(a, b))
 
-    if _eq(na, nb) and _eq(nb, nc) and all(_eq(ang, _eq(90, 0) or 0) for ang in angles):
-        pass  # Ambiguous - use fallback
+    # Angles: α = ∠(b,c), β = ∠(a,c), γ = ∠(a,b)
+    alpha = _angle(b, c)
+    beta = _angle(a, c)
+    gamma = _angle(a, b)
 
-    # Detect cubic: all 90°, equal lengths
-    if (_eq(na, nb) and _eq(nb, nc)
-            and all(abs(ang - 90) < 2 for ang in angles)):
-        return BAND_PATHS.get("fcc", [])  # FCC path works for most cubic
+    # Relative length tolerance: 5%
+    def len_eq(x, y):
+        return abs(x - y) / max(x, y, 0.01) < 0.05
 
-    # Detect hexagonal: a=b, a != c, a^b = 120°, a^c = b^c = 90°
-    if (_eq(na, nb) and not _eq(na, nc)
-            and abs(angles[2] - 120) < 5
-            and abs(angles[0] - 90) < 5
-            and abs(angles[1] - 90) < 5):
-        return BAND_PATHS.get("hcp", [])
+    def is_90(ang):
+        return abs(ang - 90.0) < 2.0
 
-    # Fallback generic path
-    return [
-        (0.0, 0.0, 0.0, "Γ"),
-        (0.5, 0.0, 0.0, "X"),
-        (0.5, 0.5, 0.0, "M"),
-        (0.0, 0.0, 0.0, "Γ"),
-    ]
+    ab = len_eq(na, nb)
+    bc = len_eq(nb, nc)
+    ac = len_eq(na, nc)
+
+    all_90 = is_90(alpha) and is_90(beta) and is_90(gamma)
+
+    # Cubic: a = b = c, all 90°
+    if ab and bc and all_90:
+        return "cubic"
+
+    # Tetragonal: a = b ≠ c, all 90°
+    if ab and not bc and all_90:
+        return "tetragonal"
+    if ac and not ab and all_90:
+        return "tetragonal"
+
+    # Orthorhombic: all angles 90°, all lengths differ
+    if all_90 and not ab and not bc and not ac:
+        return "orthorhombic"
+
+    # Hexagonal: a = b ≠ c, α = β = 90°, γ = 120°
+    if ab and not bc and is_90(alpha) and is_90(beta) and abs(gamma - 120.0) < 5.0:
+        return "hexagonal"
+
+    # Monoclinic: exactly two 90° angles
+    n90 = sum(1 for ang in (alpha, beta, gamma) if is_90(ang))
+    if n90 == 2:
+        return "monoclinic"
+
+    return "generic"
+
+
+def _guess_band_path(lattice: list[tuple[float, float, float]] | None) -> list[tuple[float, float, float, str]]:
+    """Guess the high-symmetry k-path for a lattice, with proper classification.
+
+    Uses standardized paths from Seek-path / AFLOW conventions.
+    Falls back to a generic Γ→X→M→Y→Γ→Z path for unrecognized lattices.
+    """
+    if lattice is None:
+        return BAND_PATHS["generic"]
+
+    lat_type = _classify_lattice(lattice)
+
+    # Map classification to standard paths:
+    # - cubic/fcc → unified cubic path (Γ-X-U-K-Γ-L-W-K)
+    # - bcc → special bcc path (we detect cubic but can't separate bcc from vectors)
+    # - tetragonal → Γ-X-M-Γ-Z-R-A-Z
+    # - orthorhombic → Γ-X-S-Y-Γ-Z-U-R-T-Z
+    # - hexagonal → hcp path
+    # - monoclinic / generic → basic Γ-X-M-Y-Γ-Z path
+    if lat_type == "cubic":
+        return BAND_PATHS["fcc"]
+    if lat_type == "hexagonal":
+        return BAND_PATHS["hcp"]
+
+    return BAND_PATHS.get(lat_type, BAND_PATHS["generic"])
 
 
 def _build_summary(request: VASPRequest, formula: str, elements: list[str], n_steps: int) -> str:

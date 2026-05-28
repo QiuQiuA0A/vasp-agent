@@ -17,6 +17,119 @@ document.getElementById("generateBtn").addEventListener("click", generateFiles);
 document.getElementById("downloadZipBtn").addEventListener("click", downloadZip);
 document.getElementById("copyBtn").addEventListener("click", copyCurrent);
 
+// ── INCAR template management ──────────────────────────────────────────
+
+document.getElementById("saveTemplateBtn").addEventListener("click", saveTemplate);
+document.getElementById("loadTemplateBtn").addEventListener("click", loadTemplate);
+document.getElementById("deleteTemplateBtn").addEventListener("click", deleteTemplate);
+
+async function refreshTemplateList() {
+  try {
+    var resp = await fetch("/api/v1/incar/templates");
+    var data = await resp.json();
+    var sel = document.getElementById("templateSelect");
+    sel.innerHTML = '<option value="">— INCAR 模板 —</option>';
+    (data.templates || []).forEach(function (t) {
+      var opt = document.createElement("option");
+      opt.value = t.slug;
+      opt.textContent = t.name + " (" + t.n_params + " params)";
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    // Silently ignore — template feature is optional
+  }
+}
+
+function collectAdvancedParams() {
+  var params = {};
+  var encut = document.getElementById("encut").value;
+  if (encut) params.ENCUT = parseInt(encut);
+  var nsw = document.getElementById("nsw").value;
+  if (nsw) params.NSW = parseInt(nsw);
+  var temp = document.getElementById("temperature").value;
+  if (temp) params.TEBEG = parseFloat(temp);
+  var func = document.getElementById("functional").value;
+  if (func) params.GGA = func;
+  return params;
+}
+
+function applyParams(params) {
+  if (params.ENCUT != null) document.getElementById("encut").value = params.ENCUT;
+  if (params.NSW != null) document.getElementById("nsw").value = params.NSW;
+  if (params.TEBEG != null) document.getElementById("temperature").value = params.TEBEG;
+  if (params.GGA != null) document.getElementById("functional").value = params.GGA;
+}
+
+async function saveTemplate() {
+  var params = collectAdvancedParams();
+  if (Object.keys(params).length === 0) {
+    showError("请先在高级选项中设置至少一个参数");
+    return;
+  }
+  var name = prompt("模板名称（如：高精度优化、快速测试）:", "");
+  if (!name) return;
+
+  try {
+    var resp = await fetch("/api/v1/incar/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), params: params }),
+    });
+    if (!resp.ok) {
+      var err = await resp.json();
+      showError(err.detail || "保存失败");
+      return;
+    }
+    hideMessages();
+    refreshTemplateList();
+  } catch (e) {
+    showError("保存失败: " + e.message);
+  }
+}
+
+async function loadTemplate() {
+  var slug = document.getElementById("templateSelect").value;
+  if (!slug) return;
+  try {
+    var resp = await fetch("/api/v1/incar/templates/" + encodeURIComponent(slug));
+    if (!resp.ok) {
+      var err = await resp.json();
+      showError(err.detail || "加载失败");
+      return;
+    }
+    var data = await resp.json();
+    applyParams(data.params || {});
+    hideMessages();
+  } catch (e) {
+    showError("加载失败: " + e.message);
+  }
+}
+
+async function deleteTemplate() {
+  var slug = document.getElementById("templateSelect").value;
+  if (!slug) return;
+  var name = document.getElementById("templateSelect").selectedOptions[0].textContent;
+  if (!confirm("删除模板 \"" + name + "\"？")) return;
+
+  try {
+    var resp = await fetch("/api/v1/incar/templates/" + encodeURIComponent(slug), {
+      method: "DELETE",
+    });
+    if (!resp.ok) {
+      var err = await resp.json();
+      showError(err.detail || "删除失败");
+      return;
+    }
+    hideMessages();
+    refreshTemplateList();
+  } catch (e) {
+    showError("删除失败: " + e.message);
+  }
+}
+
+// Load template list on page load
+refreshTemplateList();
+
 async function generateFiles() {
   const btn = document.getElementById("generateBtn");
   btn.disabled = true;

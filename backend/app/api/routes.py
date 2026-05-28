@@ -2,6 +2,7 @@ import io
 import zipfile
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from app.models.schemas import VASPRequest, CalculationResponse, SurfaceRequest, SurfaceResponse, SurfaceGenerateRequest
 from app.services.vasp_input import generate_vasp_files
 from app.services.surface import (
@@ -20,6 +21,9 @@ from app.services.potcar import (
     import_potcar,
     remove_potcar,
     bulk_import,
+)
+from app.services.incar_templates import (
+    list_templates, save_template, load_template, delete_template,
 )
 from app.services.user_messages import translate
 
@@ -441,3 +445,44 @@ async def surface_generate(request: SurfaceGenerateRequest):
         raise _friendly_error(e, 400)
     except NotImplementedError as e:
         raise _friendly_error(e, 501)
+
+
+# ── INCAR template management ──────────────────────────────────────────
+
+
+class _SaveTemplateRequest(BaseModel):
+    name: str
+    params: dict[str, object]
+
+
+@router.get("/incar/templates")
+async def incar_list_templates():
+    """List all saved INCAR parameter templates."""
+    return {"templates": list_templates()}
+
+
+@router.post("/incar/templates")
+async def incar_save_template(req: _SaveTemplateRequest):
+    """Save an INCAR parameter template."""
+    try:
+        return save_template(req.name, req.params)
+    except ValueError as e:
+        raise _friendly_error(e, 400)
+
+
+@router.get("/incar/templates/{name}")
+async def incar_get_template(name: str):
+    """Load a specific INCAR template by name or slug."""
+    try:
+        return load_template(name)
+    except ValueError as e:
+        raise _friendly_error(e, 404)
+
+
+@router.delete("/incar/templates/{name}")
+async def incar_delete_template(name: str):
+    """Delete an INCAR template by name or slug."""
+    deleted = delete_template(name)
+    if not deleted:
+        raise _friendly_error(ValueError(f"Template '{name}' not found"), 404)
+    return {"status": "deleted", "name": name}
